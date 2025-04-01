@@ -1,0 +1,2 @@
+# pixal
+PIXel Anomaly Locater. 
