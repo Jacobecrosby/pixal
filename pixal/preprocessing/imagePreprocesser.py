@@ -2,10 +2,11 @@ import numpy as np
 import cv2
 import os
 import argparse
+from pathlib import Path
 from glob import glob
 
 class ImageDataProcessor:
-    def __init__(self, image_folders, pool_size=8):
+    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V", "R", "G", "B"),quiet=False):
         """
         :param image_folders: List of folders containing images
         :param pool_size: Pooling kernel size (e.g., 4 reduces size by 4x)
@@ -13,6 +14,8 @@ class ImageDataProcessor:
         self.image_folders = image_folders
         self.pool_size = pool_size  # Pooling kernel size
         self.image_shape = None 
+        self.channels = channels
+        self.quiet = quiet
 
     def find_divisible_size(self, h, w):
         """Finds the closest height and width divisible by pool_size."""
@@ -161,5 +164,17 @@ def main():
     processor.save_data(args.output_file)
 
 
-if __name__ == "__main__":
-    main()
+def run(input_dir, output_dir=None, config=None, quiet=False):
+    input_path = Path(input_dir)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input path not found: {input_path}")
+
+    image_folders = [f for f in input_path.iterdir() if f.is_dir()]
+    if not quiet:
+        print(f"🔍 Processing images from {len(image_folders)} folders...")
+
+    pool_size = config.preprocessor.pool_size if config and hasattr(config, 'pool_size') else 4
+    channels = config.preprocessor.channels if config and hasattr(config, 'channels') else ("H", "S", "V", "R", "G", "B")
+    
+    processor = ImageDataProcessor(image_folders, pool_size=pool_size, channels=channels, quiet=quiet)
+    processor.save_data(output_dir)

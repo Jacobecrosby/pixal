@@ -65,10 +65,10 @@ def process_image(img_file, output_path, target_size=None):
         return f"Error: {img_file.name} ({e})", target_size
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python remove_backgrounds.py <input_folder> <output_folder>")
-    else:
-        input_folder = sys.argv[1]
-        output_folder = sys.argv[2]
-        remove_backgrounds(input_folder, output_folder)
+def run(input_folder, output_folder):
+    input_path = Path(input_folder)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input path not found: {input_path}")
+    input_folder = sys.argv[1]
+    output_folder = sys.argv[2]
+    remove_backgrounds(input_folder, output_folder)

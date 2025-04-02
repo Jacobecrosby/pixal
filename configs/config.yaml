@@ -35,8 +35,22 @@ fig_path:
 ##
 ###
 ########## ----> Preprocessing <---- ###########
-preprocessing:
-  max_workers: 8
+# Thread count for CPU usage
+preprocessing: 
+  max_workers: 8                                  # Number of CPU threads to use for preprocessing
+
+# Settings for image alignment
+alignment:
+  knn_ratio: 0.55                                 # Ratio for KNN matching
+  number_of_points: 10                            # Number of points to match between images
+  ransac_threshold: 7.0                           # RANSAC threshold for outlier removal (removes points that are too far)
+
+# Settings for preprocessing images to .npz format for ML input
+preprocessor:
+  pool_size: 2                                    # Pooling size for image pixels (e.g. 2x2 pooling) 
+  channels: ["R", "G", "B","H","S","V"]           # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"])
+
+
 
 ########### ----> Memory Handling, Inputs and Hyperparameters<----####
 
