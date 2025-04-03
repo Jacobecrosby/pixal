@@ -1,49 +1,12 @@
 import os
-import sys
 from pathlib import Path
 from rembg import remove
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+import logging
 
-def process_image(img_file, output_path):
-    try:
-        with Image.open(img_file) as img:
-            img = img.convert("RGBA")
-            output = remove(img)
-            output_file = output_path / f"{img_file.stem}_no_bg{img_file.suffix}"
-            output.save(output_file)
-        return img_file.name
-    except Exception as e:
-        return f"Error: {img_file.name} ({e})"
-
-def remove_backgrounds(input_folder, output_folder, max_workers=4):
-    input_path = Path(input_folder)
-    output_path = Path(output_folder)
-
-    if not input_path.exists():
-        print(f"Input folder does not exist: {input_path}")
-        return
-
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    supported_extensions = ('.jpg', '.jpeg', '.png', '.webp')
-    image_files = [f for f in input_path.iterdir() if f.suffix.lower() in supported_extensions]
-
-    target_size = None
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {}
-
-        for i, f in enumerate(image_files):
-            futures[executor.submit(process_image, f, output_path, target_size)] = f
-
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Removing backgrounds"):
-            result, size = future.result()
-            if isinstance(result, str) and result.startswith("Error"):
-                print(result)
-            elif target_size is None:
-                target_size = size  # Set the standard size from first processed image
-
+logger = logging.getLogger("pixal")
 
 def process_image(img_file, output_path, target_size=None):
     try:
@@ -51,9 +14,8 @@ def process_image(img_file, output_path, target_size=None):
             img = img.convert("RGBA")
             output = remove(img)
 
-            # Set target size if it's not defined
             if target_size is None:
-                target_size = output.size  # (width, height)
+                target_size = output.size
 
             output = output.resize(target_size, Image.LANCZOS)
 
@@ -64,11 +26,47 @@ def process_image(img_file, output_path, target_size=None):
     except Exception as e:
         return f"Error: {img_file.name} ({e})", target_size
 
-
-def run(input_folder, output_folder):
+def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
     input_path = Path(input_folder)
+    output_path = Path(output_folder)
+
     if not input_path.exists():
-        raise FileNotFoundError(f"Input path not found: {input_path}")
-    input_folder = sys.argv[1]
-    output_folder = sys.argv[2]
-    remove_backgrounds(input_folder, output_folder)
+        logger.error(f"Input folder does not exist: {input_path}")
+        return
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    supported_extensions = ('.jpg', '.jpeg', '.png', '.webp')
+
+    # Loop through all subdirectories (or the top folder if there are no subdirs)
+    subdirs = [p for p in input_path.iterdir() if p.is_dir()]
+    if not subdirs:
+        subdirs = [input_path]
+
+    for folder in subdirs:
+        sub_output = output_path / folder.name
+        sub_output.mkdir(parents=True, exist_ok=True)
+
+        image_files = [f for f in folder.iterdir() if f.suffix.lower() in supported_extensions]
+        if not image_files:
+            logger.warning(f"No images found in {folder}")
+            continue
+
+        target_size = None
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(process_image, f, sub_output, target_size): f
+                for f in image_files
+            }
+
+            for future in tqdm(as_completed(futures), total=len(futures),
+                               desc=f"Removing backgrounds in '{folder.name}'", disable=quiet):
+                result, size = future.result()
+                if isinstance(result, str) and result.startswith("Error"):
+                    logger.warning(result)
+                elif target_size is None:
+                    target_size = size  # Set once
+
+def run(input_folder, output_folder, config=None, quiet=False):
+    max_workers = config.remove_background.max_workers if config and hasattr(config, 'remove_background') else 4
+    remove_backgrounds(input_folder, output_folder, max_workers,quiet=quiet)
+

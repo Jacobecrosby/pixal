@@ -32,9 +32,9 @@ def load_config(path):
 
     config = _dict_to_namespace(config_data)
 
-    print("\n📄 Loaded config:", path)
-    print("-------------------------")
-    for k in config.__dict__.keys():
-        print(f"• {k}")
+    #print("\n📄 Loaded config:", path)
+    #print("-------------------------")
+    #or k in config.__dict__.keys():
+    #   print(f"• {k}")
 
     return config
