@@ -1,3 +1,10 @@
+import os, sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
+absl.logging.set_stderrthreshold('error')
+
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt

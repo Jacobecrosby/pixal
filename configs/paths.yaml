@@ -1,0 +1,35 @@
+# *************** BASE PATH. DO NOT CHANGE ***************
+out_path: &out_path "./out/"
+
+
+# ************** Path for component outputs **************
+component_path: &component_path 
+  component: "R0_Triplet_Data_Flex_F1_pink"
+  base: *out_path
+
+
+
+# ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 
+fig_path: &fig_path
+  fig: "figures"
+  base: *component_path
+
+model_path: &model_path
+  model: "model"
+  base: *component_path
+
+log_path: &log_path
+  log: "logs"
+  base: *component_path
+
+preprocessed_images_path: &preprocessed_images_path
+  preprocessed_images: "preprocessed_images"
+  base: *component_path
+
+remove_background_path: &remove_background_path
+  background_removed: "background_removed"
+  base: *preprocessed_images_path
+
+aligned_images_path: &aligned_images_path
+  aligned_images: "aligned_images"
+  base: *preprocessed_images_path

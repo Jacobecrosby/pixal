@@ -1,4 +1,10 @@
-import os
+import os, sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
+absl.logging.set_stderrthreshold('error')
+
 from pathlib import Path
 from rembg import remove
 from PIL import Image
@@ -12,6 +18,7 @@ def process_image(img_file, output_path, target_size=None):
     try:
         with Image.open(img_file) as img:
             img = img.convert("RGBA")
+            logger.info(f"Removing background for image: {img}")
             output = remove(img)
 
             if target_size is None:
@@ -20,6 +27,7 @@ def process_image(img_file, output_path, target_size=None):
             output = output.resize(target_size, Image.LANCZOS)
 
             output_file = output_path / f"{img_file.stem}_no_bg.png"
+            logger.info(f"Saving image with background removed as: {output_file}")
             output.save(output_file)
 
         return img_file.name, target_size
@@ -28,7 +36,7 @@ def process_image(img_file, output_path, target_size=None):
 
 def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
     input_path = Path(input_folder)
-    output_path = Path(output_folder)
+    output_path = output_folder
 
     if not input_path.exists():
         logger.error(f"Input folder does not exist: {input_path}")

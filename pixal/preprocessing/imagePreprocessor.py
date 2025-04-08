@@ -1,11 +1,18 @@
+import os, sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
+absl.logging.set_stderrthreshold('error')
+
 import numpy as np
 import cv2
-import os
 import argparse
 from pathlib import Path
 from glob import glob
 from tqdm import tqdm
 import logging
+from tqdm import tqdm
 
 logger = logging.getLogger("pixal")
 
@@ -51,7 +58,6 @@ class ImageDataProcessor:
         }
 
         pooled_channels = []
-
         for ch in self.channels:
             if ch in channel_map:
                 pooled = self.apply_average_pooling(channel_map[ch])
@@ -70,13 +76,8 @@ class ImageDataProcessor:
         image_paths = glob(os.path.join(folder_path, "*"))
         all_images_data = []
 
-        for image_path in image_paths:
-            if not self.quiet:
-                for _ in tqdm([image_path], desc=f"Processing {Path(image_path).name}", leave=False):
-                    image_data = self.process_image(image_path)
-            else:
-                image_data = self.process_image(image_path)
-
+        for image_path in tqdm(image_paths, desc=f"Processing {Path(folder_path).name}", disable=self.quiet):
+            image_data = self.process_image(image_path)
             if image_data is not None:
                 all_images_data.append(image_data)
 
@@ -122,10 +123,10 @@ class ImageDataProcessor:
 
         return data, labels
 
-    def save_data(self, output_file):
+    def save_data(self, output_dir):
         data, labels = self.load_and_label_data()
         if data is not None and labels is not None:
-            output_file = os.path.splitext(output_file)[0] + ".npz"
+            output_file = output_dir / "out.npz"
             if not self.quiet:
                 logger.info(f"Image shape after pooling: {self.image_shape}")
             np.savez(output_file, 
@@ -144,8 +145,8 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
     if not quiet:
         logger.info(f"🔍 Processing images from {len(image_folders)} folders...")
 
-    pool_size = config.preprocessor.pool_size if config and hasattr(config, 'pool_size') else 4
-    channels = config.preprocessor.channels if config and hasattr(config, 'channels') else ("H", "S", "V", "R", "G", "B")
-
+    pool_size = config.preprocessor.pool_size if config and hasattr(config.preprocessor, 'pool_size') else 4
+    channels = config.preprocessor.channels if config and hasattr(config.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
+  
     processor = ImageDataProcessor(image_folders, pool_size=pool_size, channels=channels, quiet=quiet)
     processor.save_data(output_dir)

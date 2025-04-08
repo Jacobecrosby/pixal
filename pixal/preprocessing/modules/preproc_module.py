@@ -102,7 +102,7 @@ def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts):
         for m, n in matches:
             if m.distance < knn_ratio * n.distance:
                 good_matches.append(m)
-        print("Number of good matches found: ",len(good_matches))
+        #print("Number of good matches found: ",len(good_matches))
         # Extract the matched keypoints
         if len(good_matches) > npts:  # At least 4 matches are required to compute the homography
             src_pts = np.float32([prev_kp[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -138,7 +138,6 @@ def alignment_score(image1,image2):
     if isinstance(image1, str):
         image1 = cv2.imread(image1, cv2.IMREAD_GRAYSCALE)
     if isinstance(image2, str):    
-        print("image2 string: ", image2)
         image2 = cv2.imread(image2, cv2.IMREAD_GRAYSCALE)
 
     # Compute SSIM and MSE between the two images
