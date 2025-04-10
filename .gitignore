@@ -28,14 +28,13 @@ ENV/
 
 # Dataset, models, and generated output
 data/
-models/
-figs/
 out/
 *.npz
 *.png
 *.jpg
 *.csv
 *.h5
+*.keras
 
 # Configs that should stay local
 *.env
