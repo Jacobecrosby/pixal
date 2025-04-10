@@ -10,9 +10,6 @@ component_path: &component_path
 
 
 # ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 
-fig_path: &fig_path
-  fig: "figures"
-  base: *component_path
 
 model_path: &model_path
   model: "model"
@@ -33,3 +30,11 @@ remove_background_path: &remove_background_path
 aligned_images_path: &aligned_images_path
   aligned_images: "aligned_images"
   base: *preprocessed_images_path
+
+fig_path: &fig_path
+  fig: "figures"
+  base: *component_path
+
+aligned_metrics_path: &aligned_metrics_path
+  metrics: "aligned_metrics"
+  base: *fig_path

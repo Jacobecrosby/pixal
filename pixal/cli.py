@@ -1,18 +1,17 @@
 # pixal/cli.py
-
+import traceback
+import sys
 import argparse
 from pathlib import Path
 #from pixal import train, detect
-from pixal.config_loader import load_config
+from pixal.modules.config_loader import load_config
 from pixal.preprocessing import runner as preprocessing_runner
 from pixal.preprocessing import remove_background
 from pixal.preprocessing import align_images
 from pixal.preprocessing import imagePreprocessor
-train_model = None  # placeholder to supress TensorFlow output
-
-
 
 def main():
+    train_model = None  # placeholder to supress TensorFlow output
     try:
         parser = argparse.ArgumentParser(prog="pixal", description="Pixel-based Anomaly Detection CLI")
         subparsers = parser.add_subparsers(dest="command", required=True)
@@ -40,7 +39,6 @@ def main():
         # Train
         train_cmd = subparsers.add_parser("train", help="Train an autoencoder model")
         train_cmd.add_argument("--input", "-i", required=True, help="Input data")
-        train_cmd.add_argument("--output", "-o", required=True, help="Model output path")
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Detect
@@ -48,7 +46,7 @@ def main():
         #detect_cmd.add_argument("--images", required=True, help="Folder with test images")
         #detect_cmd.add_argument("--model", required=True, help="Path to trained model")
         #detect_cmd.add_argument("--output", required=True, help="Output folder")
-
+        
         args = parser.parse_args()
         cfg = load_config("configs/parameters.yaml") 
 
@@ -63,14 +61,22 @@ def main():
         elif args.command == "train":
             if train_model is None:
                 from pixal.train_model import train_model
-            train_model.run(args.input, args.output, config=cfg, quiet=args.quiet)
+            train_model.run(args.input, config=cfg, quiet=args.quiet)
         #elif args.command == "detect":
         #    detect.run(args.images, args.model, args.output)
     except Exception as e:
-        print(f"❌ PIXAL CLI crashed: {e}")
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb = traceback.extract_tb(exc_tb)[-1]  # Get the last traceback entry
+        filename = tb.filename
+        line_number = tb.lineno
+        print(f"❌ PIXAL CLI crashed: {e} (File: {filename}, Line: {line_number})")
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ PIXAL crashed: {e}")
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb = traceback.extract_tb(exc_tb)[-1]  # Get the last traceback entry
+        filename = tb.filename
+        line_number = tb.lineno
+        print(f"❌ PIXAL CLI crashed: {e} (File: {filename}, Line: {line_number})")

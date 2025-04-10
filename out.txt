@@ -1,7 +1,0 @@
-usage: pixal [-h] [images ...]
-
-positional arguments:
-  images      Add visual inspection photos for preprocessing
-
-options:
-  -h, --help  show this help message and exit

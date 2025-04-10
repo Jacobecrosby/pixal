@@ -7,9 +7,10 @@ absl.logging.set_stderrthreshold('error')
 
 import cv2
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from pixal.preprocessing.modules import preproc_module as mod
+from pixal.modules import preproc_module as mod
 import logging
 
 logger = logging.getLogger("pixal")
@@ -17,7 +18,7 @@ logger = logging.getLogger("pixal")
 sift = cv2.SIFT_create()
 bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 
-def align_images(image_paths, save_dir, knn_ratio=0.55, npts=10, ransac_thresh=7.0, quiet=False):
+def align_images(image_paths, save_dir, metric_dir, knn_ratio=0.55, npts=10, ransac_thresh=7.0, save_metrics=False, quiet=False):
     save_dir.mkdir(parents=True, exist_ok=True)
     images = [cv2.imread(str(p)) for p in image_paths]
     if any(img is None for img in images):
@@ -26,8 +27,8 @@ def align_images(image_paths, save_dir, knn_ratio=0.55, npts=10, ransac_thresh=7
     prev_image = images[0]
     prev_gray = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
     prev_kp, prev_des = sift.detectAndCompute(prev_gray, None)
-
-    for i in tqdm(range(1, len(images)), desc="Aligning images", disable=quiet):
+    results = []
+    for i in tqdm(range(1, len(images)), desc=f"Aligning images in {save_dir.name}", disable=quiet):
         curr_image = images[i]
         if curr_image is None:
             if not quiet:
@@ -45,14 +46,36 @@ def align_images(image_paths, save_dir, knn_ratio=0.55, npts=10, ransac_thresh=7
             cv2.imwrite(str(transformed_path), transformed_image)
 
             if not quiet:
+                inliers = np.sum(mask)
+                inlier_ratio = inliers / len(mask)
                 score, mse = mod.alignment_score(str(image_paths[0]), str(transformed_path))
                 logger.info(f"✅ {img_name} saved: {transformed_path}")
                 logger.info(f"   → Alignment Score: {score:.3f}, MSE: {mse:.3f}")
+                results.append({
+                    "image": transformed_path,
+                    "score": score,
+                    "mse": mse,
+                    "inliers": inliers,
+                    "inlier_ratio": inlier_ratio
+                })
         else:
             if not quiet:
                 logger.warning(f"❌ Could not compute homography between {image_paths[0]} and {image_paths[i]}")
+    if save_metrics:
+        
+        metric_dir = Path(metric_dir) / Path(save_dir.name)
+        metric_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info("Starting metric plotting")
+        mod.save_alignment_metrics_csv(results,metric_dir)
+        mod.plot_alignment_metrics(results,metric_dir)
+        mod.stack_intensity_heatmap(save_dir,metric_dir)
+        
+        metric_dir = metric_dir / "overlay_diagnostics"
+        metric_dir.mkdir(parents=True, exist_ok=True)
+        mod.save_overlay_diagnostics(save_dir,metric_dir)
 
-def run(input_dir, output_dir=None, config=None, quiet=False):
+def run(input_dir, output_dir=None, metric_dir=None, config=None, quiet=False):
     input_path = Path(input_dir)
     if not input_path.exists():
         raise FileNotFoundError(f"Input path not found: {input_path}")
@@ -67,7 +90,7 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
     knn_ratio = config.alignment.knn_ratio if config and hasattr(config, 'alignment') else 0.55
     npts = config.alignment.number_of_points if config and hasattr(config, 'alignment') else 10
     ransac_thresh = config.alignment.ransac_threshold if config and hasattr(config, 'alignment') else 7.0
-
+    save_metrics = config.save_metrics if config and hasattr(config, 'save_metrics') else False
     for folder in subdirs:
         image_files = sorted([f for f in folder.iterdir() if f.suffix.lower() in ['.png', '.jpg', '.jpeg']])
         if not image_files:
@@ -76,6 +99,6 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
             continue
 
         sub_output = output_path / folder.name
-        align_images(image_files, sub_output, knn_ratio, npts, ransac_thresh, quiet)
+        align_images(image_files, sub_output, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet)
         if not quiet:
             logger.info(f"📁 Completed alignment for folder: {folder.name}")

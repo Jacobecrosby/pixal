@@ -26,32 +26,41 @@ from sklearn.model_selection import train_test_split
 
 from numba import cuda
 import gc
-from pixal.config_loader import load_config
+from pixal.modules.config_loader import load_config
 from pixal.train_model.autoencoder import Autoencoder
+from pixal.modules.config_loader import load_config, resolve_path
 
 
-def run(input_file, output_path, config, quiet):
+def run(input_file, config, quiet):
     tf.keras.config.disable_interactive_logging()
-    output_path = Path(output_path)
+    
+    path_config = load_config("configs/paths.yaml")
+    
+    model_dir = resolve_path(path_config.model_path)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    
     input_file = Path(input_file)
 
     # Set up logging
     log_date = datetime.datetime.now().strftime("%Y-%m-%d")
     log_time = datetime.datetime.now().strftime("%H-%M-%S")
-    log_path = output_path / "logs/train_model.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    log_path = resolve_path(path_config.log_path)
+    log_path.mkdir(parents=True, exist_ok=True)
+    log_file = Path(log_path / "train_model.log")
+
     logging.basicConfig(
-        filename=log_path,
+        filename= log_file,
         filemode="w",
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
     logger = logging.getLogger("pixal")
-
-    sys.stdout = open(log_path, 'a')
+    
+    sys.stdout = open(log_file, 'a')
     sys.stderr = sys.stdout
     tf.get_logger().setLevel('INFO')
-    tf.get_logger().addHandler(logging.FileHandler(log_path))
+    tf.get_logger().addHandler(logging.FileHandler(log_file))
 
     logging.info("Script started")
 
@@ -104,12 +113,10 @@ def run(input_file, output_path, config, quiet):
 
     input_dim = X.shape[1]
 
-    model_save_path = os.path.join(output_path, "model", config.model_path.model_name)
-    os.makedirs(model_save_path, exist_ok=True)
-    model_file = os.path.join(model_save_path, config.model_path.model_name + ".h5")
-
-    figs_dir = os.path.join(output_path, "figs")
-
+    model_file = os.path.join(model_dir, config.model_name + ".h5")
+    figs_path = resolve_path(path_config.fig_path)
+    figs_path.mkdir(parents=True, exist_ok=True)
+    
     params = {
         'architecture': config.autoencoder_architecture,
         'learning_rate': float(config.learning_rate),
@@ -121,12 +128,12 @@ def run(input_file, output_path, config, quiet):
         'loss_function': config.loss_function,
         'use_gradient_tape': config.use_gradient_tape,
         'patience': config.patience,
-        'modelName': config.Model_name,
+        'modelName': config.model_name,
         'l2_regularization': config.l2_regularization,
         'log_date': log_date,
         'timestamp': log_time,
-        'fig_dir': figs_dir,
-        'model_path': model_save_path,
+        'fig_path': str(figs_path),
+        'model_path': str(model_dir),
         'num_classes': y_train.shape[1],
         'label_latent_size': config.label_latent_size
     }

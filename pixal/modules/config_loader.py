@@ -1,6 +1,19 @@
 import yaml
 import os
 from types import SimpleNamespace
+from pathlib import Path
+
+def resolve_path(obj):
+    parts = []
+    while isinstance(obj, dict) or hasattr(obj, '__dict__'):
+        d = obj.__dict__ if hasattr(obj, '__dict__') else obj
+        # Pull keys except 'base'
+        keys = list(k for k in d if k != 'base')
+        if keys:
+            parts.insert(0, d[keys[0]])
+        obj = d.get('base')
+    parts.insert(0, obj)  # Add root base string
+    return Path(*parts)
 
 class ConfigNamespace(SimpleNamespace):
     def __getitem__(self, key):

@@ -8,14 +8,6 @@
 #   PIXAL – PIXel-based Anomaly Locator
 # =====================================
 
-#
-##
-###
-#### 
-#### 
-#### ----> Pathes <---- ####
-
-
 ###
 ##
 #
@@ -23,7 +15,7 @@
 ###
 ########## ----> Preprocessing <---- ###########
 # Thread count for CPU usage
-remove_background:: 
+remove_background: 
   max_workers: 8                                  # Number of CPU threads to use for preprocessing
 
 # Settings for image alignment
@@ -31,6 +23,8 @@ alignment:
   knn_ratio: 0.55                                 # Ratio for KNN matching
   number_of_points: 10                            # Number of points to match between images
   ransac_threshold: 7.0                           # RANSAC threshold for outlier removal (removes points that are too far)
+
+save_metrics: True                                # Save alignment metrics
 
 # Settings for preprocessing images to .npz format for ML input
 preprocessor:
@@ -51,7 +45,7 @@ CPU_MULTI_THREADING: False
 HYBRID_MODE: False  # utilize both CPU and GPU
 
 #### ----> Model <---- ####
-Model_name: "testModel"  #incase input model is different than data name
+model_name: "testModel"  #incase input model is different than data name
 seed: 101
 
 #### ----> Architecture <---- ####
@@ -63,8 +57,8 @@ label_latent_size: 50 # Size of the latent layer for the label. This gets added 
 use_gradient_tape: False # Gradient tape is used for full control of training cycle. Such as custom loss functions, custom optimization, etc. (reinforcement learning, adversarial learning)
 
 ###----> NN Hyperparameters <----###
-n_epochs: 5
-batchsize: 16
+n_epochs: 500
+batchsize: 8
 
 learning_rate: 1e-5
 l2_regularization: 0.01 #smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.

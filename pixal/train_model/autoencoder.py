@@ -123,7 +123,7 @@ class Autoencoder(tf.keras.Model):
         )
 
         checkpoint = ModelCheckpoint(
-            filepath=f"models/{params['log_date']}/{params['timestamp']}/{params['modelName']}.keras", 
+            filepath=f"{params['model_path']}/{params['modelName']}.keras", 
             verbose=1, 
             save_freq='epoch'
         )
@@ -161,14 +161,13 @@ class Autoencoder(tf.keras.Model):
                 callbacks=[early_stopping, checkpoint],
                 validation_data=([x_val, y_val], x_val),
                 validation_batch_size=params['batchsize']
-    )
-            
+        ) 
         # Save loss values to a file
         loss_history = {
             "train_loss": history.history["loss"],
             "val_loss": history.history["val_loss"]
             }
-        save_dir = params['model_path'] + params['log_date'] + '/' + params['timestamp']
+        save_dir = params['model_path']
         logging.info("save_dir: {save_dir}")
         os.makedirs(save_dir, exist_ok=True)  # Creates the directory if it does not exist
         loss_file_path = os.path.join(save_dir, "loss_history.json")
@@ -176,7 +175,7 @@ class Autoencoder(tf.keras.Model):
             json.dump(loss_history, f)
 
         # Plot and save the loss curve
-        self.plot_loss(history.history, save_dir)
+        self.plot_loss(history.history, params['fig_path'])
 
     def plot_loss(self, history, save_dir):
         """Plot and save training vs validation loss"""
@@ -188,11 +187,8 @@ class Autoencoder(tf.keras.Model):
         plt.title("Training vs Validation Loss")
         plt.legend()
         plt.grid()
-
-        figs_dir = os.path.join(save_dir, "figs")
-        os.makedirs(figs_dir, exist_ok=True)
-
-        loss_plot_path = os.path.join(figs_dir, "loss_plot.png")
+        
+        loss_plot_path = os.path.join(save_dir, "loss_plot.png")
         plt.savefig(loss_plot_path)
         plt.close()
         

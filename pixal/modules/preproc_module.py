@@ -1,0 +1,310 @@
+from PIL import Image
+import numpy as np
+import cv2
+from skimage.metrics import structural_similarity as ssim
+import os
+from pathlib import Path
+import pandas as pd
+import matplotlib.pyplot as plt
+import logging
+from tqdm import tqdm
+
+
+logger = logging.getLogger("pixal")
+
+def get_equally_spaced_indices(n, start, end):
+    # Generate n equally spaced indices from start to end
+    indices = np.linspace(start, end, num=n, dtype=int)
+    return indices
+
+def get_score(pix1,pix2):
+    # We are comparing against the first image, so we'll take pix1 as the true value
+    pix1 = np.array(pix1)
+    pix2 = np.array(pix2)
+    t_values = []
+    c_values = []
+    
+    t_values = pix1*2
+    c_values = pix1+pix2
+
+    for i in range(len(t_values)):
+        for p in range(len(t_values[0])):
+            if t_values[i][p] == 0:
+                t_values[i][p] = 1
+            if c_values[i][p] == 0:
+                c_values[i][p] = 1
+            
+    f_values = np.array([a / b for a, b in zip(c_values, t_values)])
+
+    # Calculate the average
+    mean = np.mean(np.mean(f_values, axis=1),axis=0)
+    
+    return mean
+
+def retrieve_grid_pixels(image, grid_size=(6, 6),offset=100):
+
+    image = cv2.imread(image)
+    
+    if image is None:
+        raise ValueError(f"Error loading image at {image}")
+
+    # Get the height and width of the image
+    height, width, _ = image.shape
+
+        # Calculate valid height and width after the offset
+    valid_height = height - offset
+    valid_width = width - offset
+
+    if valid_height < grid_size[0] or valid_width < grid_size[1]:
+        raise ValueError("Image is too small for the specified grid size and offset.")
+
+    # Calculate the spacing between pixels
+    row_indices = np.linspace(offset, valid_height - 1, grid_size[0], dtype=int)
+    col_indices = np.linspace(offset, valid_width - 1, grid_size[1], dtype=int)
+
+    # Retrieve the pixels from the image
+    pixels = []
+    for r in row_indices:
+        for c in col_indices:
+            pixels.append(image[r, c])  # Append the pixel value
+
+    return row_indices, col_indices
+
+def mse(imageA, imageB):
+    # Ensure images are of the same shape and type
+    assert imageA.shape == imageB.shape, "Images must have the same dimensions."
+    return np.mean((imageA - imageB) ** 2)
+
+
+def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts):
+    # Convert to grayscale
+        curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
+        
+        # Detect keypoints and descriptors in the current image
+        curr_kp, curr_des = sift.detectAndCompute(curr_gray, None)
+        
+        # Apply KNN matching between the previous image and the current image
+        matches = bf.knnMatch(prev_des, curr_des, k=2) #knnMatch
+
+        good_matches = []
+        for m, n in matches:
+            if m.distance < knn_ratio * n.distance:
+                good_matches.append(m)
+        #print("Number of good matches found: ",len(good_matches))
+        # Extract the matched keypoints
+        if len(good_matches) > npts:  # At least 4 matches are required to compute the homography
+            src_pts = np.float32([prev_kp[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            dst_pts = np.float32([curr_kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            
+            src_len = len(src_pts)
+            #print(src_len)
+            #print(src_pts.shape)
+            
+            #ind = get_equally_spaced_indices(npts,0,src_len-1)
+
+            #src_npts = []
+            #dst_npts = []
+            #for n in range(len(ind)):
+            #    src_npts.append((src_pts[ind[n]][0][0],src_pts[ind[n]][0][1]))
+            #    dst_npts.append((dst_pts[ind[n]][0][0],dst_pts[ind[n]][0][1]))
+            
+            src_npts = np.array(src_pts) #npts
+            dst_npts = np.array(dst_pts) #npts
+
+            return src_npts, dst_npts
+
+
+def alignment_score(image1,image2):
+    # This takes a set of pixels from both images and compares their values. 
+    # The ideal scenario has all pixel values matching each other
+    # This score tells us how close all chosen pixel values are to each other 
+    # The idea is if all pixel values are almost exact, the image is aligned well
+
+    # Let's get a grid of 9 pixels equally separated
+    #row, col = retrieve_grid_pixels(img1)
+    
+    if isinstance(image1, str):
+        image1 = cv2.imread(image1, cv2.IMREAD_GRAYSCALE)
+    if isinstance(image2, str):    
+        image2 = cv2.imread(image2, cv2.IMREAD_GRAYSCALE)
+
+    # Compute SSIM and MSE between the two images
+    mse_score = mse(image1,image2)
+    score = ssim(image1, image2, win_size=3)
+    
+    return score, mse_score
+
+
+def plot_line_metric(values, title, ylabel, save_path=None):
+    plt.figure(figsize=(10, 5))
+    plt.plot(values, marker='o')
+    plt.title(title)
+    plt.xlabel("Image Index")
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    plt.close()
+
+def plot_bar_metric(values, title, ylabel, save_path=None):
+    plt.figure(figsize=(10, 5))
+    plt.bar(range(len(values)), values)
+    plt.title(title)
+    plt.xlabel("Image Index")
+    plt.ylabel(ylabel)
+    plt.grid(True, axis='y')
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    plt.close()
+
+def plot_alignment_metrics(metrics, output_dir):
+    """
+    metrics: list of dicts with keys 'score', 'mse', 'inlier_ratio'
+    output_dir: Path or str
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    scores = [m["score"] for m in metrics]
+    mses = [m["mse"] for m in metrics]
+    inlier_ratios = [m["inlier_ratio"] for m in metrics]
+    logger.info(f"Saving {output_dir}/alignment_score.png")
+    plot_line_metric(
+        scores,
+        title="Alignment Score per Image",
+        ylabel="Alignment Score",
+        save_path=output_dir / "alignment_score.png"
+    )
+    logger.info(f"Saving {output_dir}/mse.png")
+    plot_line_metric(
+        mses,
+        title="MSE per Image",
+        ylabel="Mean Squared Error",
+        save_path=output_dir / "mse.png"
+    )
+    logger.info(f"Saving {output_dir}/inlier_ratio.png")
+    plot_bar_metric(
+        inlier_ratios,
+        title="Inlier Ratio per Image",
+        ylabel="Inlier Ratio",
+        save_path=output_dir / "inlier_ratio.png"
+    )
+
+# ------------------------------
+# 📁 Save CSV of Metrics
+# ------------------------------
+
+def save_alignment_metrics_csv(metrics, output_path):
+    """
+    metrics: list of dicts
+    output_path: str or Path
+    """
+    df = pd.DataFrame(metrics)
+    output_path = Path(output_path)
+    output_file = output_path / "results.csv"
+    #output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_file, index=False)
+    logger.info(f"✅ Metrics CSV saved to {output_path}")
+
+# ------------------------------
+# 🖼️ Save Visual Diagnostics
+# ------------------------------
+
+
+def save_overlay_diagnostics(image_dir, output_dir, blend_alpha=0.5):
+    """
+    Compares all images in a folder to the first image and saves diagnostic overlays.
+
+    Parameters:
+    - image_dir: str or Path — directory with aligned images
+    - output_dir: str or Path — root directory to save diagnostics
+    - blend_alpha: float — blending ratio (0.0 to 1.0), 0.5 = equal blend
+    """
+    image_dir = Path(image_dir)
+    output_dir = Path(output_dir) / "overlay_diagnostics"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    image_paths = sorted([p for p in image_dir.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
+    if len(image_paths) < 2:
+        logger.info(f"❌ Need at least 2 images to compare in {image_dir}")
+        return
+
+    ref_image_path = image_paths[0]
+    ref = cv2.imread(str(ref_image_path))
+    if ref is None:
+        print(f"❌ Failed to read reference image: {ref_image_path}")
+        return
+
+    logger.info(f"🔍 Using reference: {ref_image_path.name}")
+
+    for aligned_path in tqdm(image_paths[1:], desc=f"Overlaying images in {image_dir.name}"):
+        aligned = cv2.imread(str(aligned_path))
+        if aligned is None:
+            print(f"⚠️ Skipping unreadable image: {aligned_path.name}")
+            continue
+
+        # Resize aligned image to match reference
+        aligned_resized = cv2.resize(aligned, (ref.shape[1], ref.shape[0]))
+        blended = cv2.addWeighted(ref, blend_alpha, aligned_resized, 1 - blend_alpha, 0)
+
+        side_by_side = np.concatenate([ref, aligned_resized, blended], axis=1)
+        out_path = output_dir / f"diag_{aligned_path.name}"
+        cv2.imwrite(str(out_path), side_by_side)
+        logger.info(f"✅ Saved diagnostic: {out_path.name}")
+        
+        
+# ------------------------------
+# 🔥 Stack HSV V-Channel Heatmap
+# ------------------------------
+
+def stack_intensity_heatmap(image_dir, save_path, reference_path=None, normalize=True):
+    """
+    Stacks HSV V-channel values for visual inspection and creates a normalized heatmap.
+
+    Parameters:
+    - image_dir: str or Path to directory containing image files
+    - save_path: str or Path to output heatmap image
+    - reference_path: optional str or Path to subtract a reference V-channel image
+    - normalize: bool, if True scales values to [0, 1] before plotting
+    """
+    image_dir = Path(image_dir)
+    image_paths = sorted([p for p in image_dir.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
+
+    if not image_paths:
+        print("❌ No images to process.")
+        return
+
+    img0 = Image.open(image_paths[0]).convert('HSV')
+    width, height = img0.size
+    stack = np.zeros((height, width), dtype=np.float32)
+
+    for img_path in image_paths:
+        img = Image.open(img_path).convert('HSV').resize((width, height))
+        _, _, v = img.split()
+        stack += np.array(v, dtype=np.float32)
+
+    if reference_path:
+        ref = Image.open(reference_path).convert('HSV').resize((width, height))
+        _, _, v_ref = ref.split()
+        stack -= np.array(v_ref, dtype=np.float32)
+
+    if normalize:
+        min_val = np.min(stack)
+        max_val = np.max(stack)
+        if max_val != min_val:
+            stack = (stack - min_val) / (max_val - min_val)
+        else:
+            stack[:] = 0.0  # If constant image
+
+    plt.figure(figsize=(10, 6))
+    im = plt.imshow(stack, cmap='viridis')
+    plt.title("Normalized Stacked V-Channel Heatmap" if normalize else "Stacked V-Channel Heatmap")
+    plt.colorbar(im, label='Normalized Intensity' if normalize else 'Accumulated Intensity')
+    plt.xlabel("Column Index")
+    plt.ylabel("Row Index")
+    save_path = Path(save_path)
+    save_file = save_path / "heatmap.png"
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(save_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    logger.info(f"✅ Heatmap saved to {save_file}")
