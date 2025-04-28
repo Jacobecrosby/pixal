@@ -15,7 +15,7 @@ def run_preprocessing(input_dir, config=None,quiet=False):
     aligned_dir = resolve_path(path_config.aligned_images_path)
     aligned_dir.mkdir(parents=True, exist_ok=True)
     
-    npz_dir = resolve_path(path_config.component_path)
+    npz_dir = resolve_path(path_config.component_model_path)
     
     # Set up logging
     log_path = resolve_path(path_config.log_path)
@@ -86,7 +86,7 @@ def run_imagePreprocessor(config=None,quiet=False):
     path_config = load_config("configs/paths.yaml")
     input_dir = resolve_path(path_config.aligned_images_path)
 
-    output_dir = resolve_path(path_config.component_path)
+    output_dir = resolve_path(path_config.component_model_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Set up logging

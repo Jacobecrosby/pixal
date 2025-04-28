@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from pixal.modules import preproc_module as mod
+from pixal.modules import preprocessing as mod
 import logging
 
 logger = logging.getLogger("pixal")
@@ -91,6 +91,7 @@ def run(input_dir, output_dir=None, metric_dir=None, config=None, quiet=False):
     npts = config.alignment.number_of_points if config and hasattr(config, 'alignment') else 10
     ransac_thresh = config.alignment.ransac_threshold if config and hasattr(config, 'alignment') else 7.0
     save_metrics = config.save_metrics if config and hasattr(config, 'save_metrics') else False
+    
     for folder in subdirs:
         image_files = sorted([f for f in folder.iterdir() if f.suffix.lower() in ['.png', '.jpg', '.jpeg']])
         if not image_files:
@@ -102,3 +103,29 @@ def run(input_dir, output_dir=None, metric_dir=None, config=None, quiet=False):
         align_images(image_files, sub_output, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet)
         if not quiet:
             logger.info(f"📁 Completed alignment for folder: {folder.name}")
+
+def run_validation(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=None, quiet=False):
+    
+    input_path = Path(input_dir)
+    reference_path = Path(reference_dir)
+    
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input path not found: {input_path}")
+    if not reference_path.exists():
+        raise FileNotFoundError(f"Input path not found: {reference_path}")
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    subdirs = [p for p in reference_path.iterdir() if p.is_dir()]
+    if not subdirs:
+        subdirs = [input_path]
+    
+    #print(subdirs)
+    
+    #if len(subdirs) =! len()
+    
+    knn_ratio = config.alignment.knn_ratio if config and hasattr(config, 'alignment') else 0.55
+    npts = config.alignment.number_of_points if config and hasattr(config, 'alignment') else 10
+    ransac_thresh = config.alignment.ransac_threshold if config and hasattr(config, 'alignment') else 7.0
+    save_metrics = config.save_metrics if config and hasattr(config, 'save_metrics') else False

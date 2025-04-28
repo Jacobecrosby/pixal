@@ -5,7 +5,7 @@ import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 absl.logging.set_stderrthreshold('error')
 
-import module.plotting_module as pltm
+import pixal.modules.plotting as pltm
 import numpy as np
 
 stderr_backup = sys.stderr
@@ -20,7 +20,7 @@ import cv2
 
 
 
-if __name__ == "__main__":
+def run():
     # Load test dataset
     dataset = np.load("out_hsvrbg_def.npz")  # Load dataset with X_test and y_test
     #dataset = np.load("val.npz")  # Load dataset with X_test and y_test

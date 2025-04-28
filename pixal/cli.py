@@ -10,8 +10,10 @@ from pixal.preprocessing import remove_background
 from pixal.preprocessing import align_images
 from pixal.preprocessing import imagePreprocessor
 
+
 def main():
     train_model = None  # placeholder to supress TensorFlow output
+    detect = None       # placeholder to supress Tensorflow output
     try:
         parser = argparse.ArgumentParser(prog="pixal", description="Pixel-based Anomaly Detection CLI")
         subparsers = parser.add_subparsers(dest="command", required=True)
@@ -42,10 +44,9 @@ def main():
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Detect
-        #detect_cmd = subparsers.add_parser("detect", help="Run anomaly detection on new images")
-        #detect_cmd.add_argument("--images", required=True, help="Folder with test images")
-        #detect_cmd.add_argument("--model", required=True, help="Path to trained model")
-        #detect_cmd.add_argument("--output", required=True, help="Output folder")
+        detect_cmd = subparsers.add_parser("detect", help="Run anomaly detection on new images")
+        detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
+        detect_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
         
         args = parser.parse_args()
         cfg = load_config("configs/parameters.yaml") 
@@ -62,8 +63,10 @@ def main():
             if train_model is None:
                 from pixal.train_model import train_model
             train_model.run(args.input, config=cfg, quiet=args.quiet)
-        #elif args.command == "detect":
-        #    detect.run(args.images, args.model, args.output)
+        elif args.command == "detect":
+            if detect is None:
+                from pixal.validate import runner as validation_runner
+            validation_runner.run_detection(args.input, config=cfg,quiet=args.quiet)
     except Exception as e:
         exc_type, exc_value, exc_tb = sys.exc_info()
         tb = traceback.extract_tb(exc_tb)[-1]  # Get the last traceback entry
