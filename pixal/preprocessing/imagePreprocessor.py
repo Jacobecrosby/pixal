@@ -12,7 +12,6 @@ from pathlib import Path
 from glob import glob
 from tqdm import tqdm
 import logging
-from tqdm import tqdm
 
 logger = logging.getLogger("pixal")
 
