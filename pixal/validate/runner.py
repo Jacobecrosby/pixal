@@ -6,6 +6,7 @@ from pixal.modules.config_loader import load_config, resolve_path
 
 def run_detection(input_dir, config=None,quiet=False):
     path_config = load_config("configs/paths.yaml")
+    config = load_config("configs/parameters.yaml")
     
     metric_dir = resolve_path(path_config.validate_aligned_metrics_path)
     metric_dir.mkdir(parents=True, exist_ok=True)
@@ -34,6 +35,6 @@ def run_detection(input_dir, config=None,quiet=False):
     if not quiet:
         logger.info(f"📁 Logging all preprocessing and validation steps to {log_path}")
 
-    remove_background.run(input_dir, bg_removed_dir, reference_dir,config=config, quiet=quiet)
-    #align_images.run(bg_removed_dir, aligned_dir, metric_dir, config=config, quiet=quiet)
+    remove_background.run(input_dir, bg_removed_dir, config=config, quiet=quiet)
+    align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet,detect=True)
     #imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet)

@@ -73,7 +73,7 @@ min_delta: 3
 ##
 ###
 ####
-##### ----> PLOTTING <----#####
+##### ----> PLOTTING <----##### NOT USED ATM
 
 scatter_comparison: ['forward', 'data'] #,'backward']  # this plots backward passing, forward passing, and data on same plot. Remove any if once cares to do so
 

@@ -34,10 +34,10 @@ def process_image(img_file, output_path, target_size=None):
     except Exception as e:
         return f"Error: {img_file.name} ({e})", target_size
 
-def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
+def remove_backgrounds(input_folder, output_folder,max_workers=4, quiet=False):
     input_path = Path(input_folder)
     output_path = output_folder
-
+    
     if not input_path.exists():
         logger.error(f"Input folder does not exist: {input_path}")
         return
@@ -51,8 +51,6 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
         subdirs = [input_path]
 
     for folder in subdirs:
-        sub_output = output_path / folder.name
-        sub_output.mkdir(parents=True, exist_ok=True)
 
         image_files = [f for f in folder.iterdir() if f.suffix.lower() in supported_extensions]
         if not image_files:
@@ -62,7 +60,7 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
         target_size = None
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(process_image, f, sub_output, target_size): f
+                executor.submit(process_image, f, output_path, target_size): f
                 for f in image_files
             }
 
@@ -74,6 +72,7 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False):
                 elif target_size is None:
                     target_size = size  # Set once
 
+                    
 def run(input_folder, output_folder, config=None, quiet=False):
     max_workers = config.remove_background.max_workers if config and hasattr(config, 'remove_background') else 4
     remove_backgrounds(input_folder, output_folder, max_workers,quiet=quiet)
