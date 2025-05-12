@@ -16,6 +16,8 @@ def run_preprocessing(input_dir, config=None,quiet=False):
     aligned_dir.mkdir(parents=True, exist_ok=True)
     
     npz_dir = resolve_path(path_config.component_model_path)
+
+    reference_dir = None
     
     # Set up logging
     log_path = resolve_path(path_config.log_path)
@@ -32,7 +34,7 @@ def run_preprocessing(input_dir, config=None,quiet=False):
         logger.info(f"📁 Logging all preprocessing steps to {log_path}")
 
     remove_background.run(input_dir, bg_removed_dir, config=config, quiet=quiet)
-    align_images.run(bg_removed_dir, aligned_dir, metric_dir, config=config, quiet=quiet)
+    align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet)
     imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet)
 
 def run_remove_background(input_dir, config=None,quiet=False):

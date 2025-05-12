@@ -9,8 +9,56 @@ import matplotlib.pyplot as plt
 import logging
 from tqdm import tqdm
 
+import difflib
 
 logger = logging.getLogger("pixal")
+
+from pathlib import Path
+
+def rename_file_to_parent_dir(file_path):
+    """
+    Renames a file to match the name of its parent directory.
+    Keeps the original file extension.
+
+    Parameters:
+        file_path (str or Path): The full path to the file.
+    
+    Returns:
+        Path: The new file path after renaming.
+    """
+    file_path = Path(file_path)
+    parent_dir_name = file_path.parent.name
+    new_file_name = parent_dir_name + file_path.suffix
+    new_file_path = file_path.with_name(new_file_name)
+
+    file_path.rename(new_file_path)  # Actually renames the file on disk
+    return new_file_path
+
+
+def similarity_score(a, b):
+    """Return a similarity ratio between two strings."""
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+def rearrange_by_similarity(reference_list, target_list):
+    """
+    Rearranges target_list based on similarity to reference_list.
+    
+    Each item in target_list is scored by its best match in reference_list,
+    then the list is sorted by descending similarity.
+    """
+    scored_targets = []
+    target_list = [Path(p) for p in target_list]    
+    reference_list = [Path(p) for p in reference_list]
+
+    for target in target_list:
+        max_score = max(similarity_score(target, ref) for ref in reference_list)
+        scored_targets.append((target, max_score))
+    
+    # Sort by similarity score descending
+    sorted_targets = sorted(scored_targets, key=lambda x: x[1], reverse=True)
+    
+    return [item[0] for item in sorted_targets]
+
 
 def get_equally_spaced_indices(n, start, end):
     # Generate n equally spaced indices from start to end

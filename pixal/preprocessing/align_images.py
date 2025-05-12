@@ -12,11 +12,14 @@ from pathlib import Path
 from tqdm import tqdm
 from pixal.modules import preprocessing as mod
 import logging
+import difflib
 
 logger = logging.getLogger("pixal")
 
 sift = cv2.SIFT_create()
 bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+
+
 
 def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.55, npts=10, ransac_thresh=7.0, save_metrics=False, quiet=False, detect=False):
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -113,7 +116,7 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
                 continue
 
             sub_output = output_path / folder.name
-            align_images(image_files, sub_output, reference_files, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet, detect)
+            align_images(image_files, sub_output, reference_dir, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet, detect)
             if not quiet:
                 logger.info(f"📁 Completed alignment for folder: {folder.name}")
     
@@ -121,7 +124,12 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
         for folder1, folder2 in zip(subdirs,reference_subdirs):
             image_files = sorted([f for f in folder1.iterdir() if f.suffix.lower() in ['.png', '.jpg', '.jpeg']])
             reference_files = sorted([f for f in folder2.iterdir() if f.suffix.lower() in ['.png', '.jpg', '.jpeg']]) # how to pair input to refernce?
-            
+            reference_files = mod.rearrange_by_similarity(reference_files, image_files)
+
+            if len(reference_files) != len(image_files):
+                if not quiet:
+                    logger.warning(f"Number of images in {folder1} and {folder2} do not match.")
+                continue
             if not image_files:
                 if not quiet:
                     logger.warning(f"No images found in {folder}")
