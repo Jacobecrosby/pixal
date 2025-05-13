@@ -91,14 +91,15 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
                         # Early exit if a good-enough match is found
                         if score >= MIN_SCORE_THRESHOLD and mse <= MAX_MSE_THRESHOLD:
                             best_alignment = transformed_image
-                            best_metrics = {"score": score, "mse": mse}
+                            best_metrics = {"score": score, "mse": mse,"index": j}
                             best_path = transformed_path
                             break  # No need to test more references
 
                         # Track best fallback candidate
                         if score > best_metrics["score"] and mse < best_metrics["mse"]:
+                            ind = j
                             best_alignment = transformed_image
-                            best_metrics = {"score": score, "mse": mse}
+                            best_metrics = {"score": score, "mse": mse, "index": ind}
                             best_path = transformed_path
 
         if best_alignment is not None and best_path is not None:
@@ -109,7 +110,8 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
                 "score": best_metrics["score"],
                 "mse": best_metrics["mse"],
                 "inliers": inliers,
-                "inlier_ratio": inliers / len(mask)
+                "inlier_ratio": inliers / len(mask),
+                "index": best_metrics["index"]
             })
         else:
             logger.warning(f"❌ Could not find a suitable alignment for {image_paths[i]}. Exiting.")
@@ -121,7 +123,13 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         logger.info("Starting metric plotting")
         mod.save_alignment_metrics_csv(results,metric_dir)
         mod.plot_alignment_metrics(results,metric_dir)
-        mod.stack_intensity_heatmap(save_dir,metric_dir)
+        print(results)
+        print("ref index: ", results["index"])
+        print("ref index: ",reference_dir[(results["index"])])
+        if detect:
+            mod.stack_intensity_heatmap(save_dir,metric_dir,reference_dir[results["index"]])
+        else:
+            mod.stack_intensity_heatmap(save_dir,metric_dir)
         
         metric_dir = metric_dir / "overlay_diagnostics"
         metric_dir.mkdir(parents=True, exist_ok=True)
