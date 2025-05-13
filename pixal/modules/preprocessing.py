@@ -51,7 +51,7 @@ def rearrange_by_similarity(reference_list, target_list):
     reference_list = [Path(p) for p in reference_list]
 
     for target in target_list:
-        max_score = max(similarity_score(target, ref) for ref in reference_list)
+        max_score = max(similarity_score(target.name, ref.name) for ref in reference_list)
         scored_targets.append((target, max_score))
     
     # Sort by similarity score descending
@@ -124,7 +124,7 @@ def mse(imageA, imageB):
     return np.mean((imageA - imageB) ** 2)
 
 
-def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts):
+def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts,logger=None):
     # Convert to grayscale
         curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
         
@@ -138,13 +138,13 @@ def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts):
         for m, n in matches:
             if m.distance < knn_ratio * n.distance:
                 good_matches.append(m)
-        #print("Number of good matches found: ",len(good_matches))
+        #logger.info(f"Number of good matches found: {len(good_matches)}")
         # Extract the matched keypoints
         if len(good_matches) > npts:  # At least 4 matches are required to compute the homography
             src_pts = np.float32([prev_kp[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
             dst_pts = np.float32([curr_kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
             
-            src_len = len(src_pts)
+            #src_len = len(src_pts)
             #print(src_len)
             #print(src_pts.shape)
             
@@ -158,7 +158,6 @@ def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts):
             
             src_npts = np.array(src_pts) #npts
             dst_npts = np.array(dst_pts) #npts
-
             return src_npts, dst_npts
 
 

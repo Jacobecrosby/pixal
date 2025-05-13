@@ -20,9 +20,12 @@ remove_background:
 
 # Settings for image alignment
 alignment:
-  knn_ratio: 0.55                                 # Ratio for KNN matching
-  number_of_points: 10                            # Number of points to match between images
+  knn_ratio: 0.8                                 # Ratio for KNN matching. Lower for more strict matching
+  number_of_points: 5                            # Number of points to match between images
   ransac_threshold: 7.0                           # RANSAC threshold for outlier removal (removes points that are too far)
+  MIN_SCORE_THRESHOLD: 0.5
+  MAX_MSE_THRESHOLD: 10.0
+  MIN_GOOD_MATCHES: 20
 
 save_metrics: True                                # Save alignment metrics
 
