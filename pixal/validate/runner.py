@@ -17,7 +17,7 @@ def run_detection(input_dir, config=None,quiet=False):
     aligned_dir = resolve_path(path_config.validate_aligned_images_path)
     aligned_dir.mkdir(parents=True, exist_ok=True)
     
-    reference_dir = resolve_path(path_config.remove_background_path)
+    reference_dir = resolve_path(path_config.aligned_images_path)
     
     npz_dir = resolve_path(path_config.component_validate_path)
     

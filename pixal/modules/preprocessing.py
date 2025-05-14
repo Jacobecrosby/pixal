@@ -258,46 +258,80 @@ def save_alignment_metrics_csv(metrics, output_path):
 # ------------------------------
 
 
-def save_overlay_diagnostics(image_dir, output_dir, blend_alpha=0.5):
+def save_overlay_diagnostics(image_dir, output_dir, reference_dir=None, logger=None, blend_alpha=0.5):
     """
-    Compares all images in a folder to the first image and saves diagnostic overlays.
+    Creates side-by-side overlays of images from image_dir against a reference.
 
     Parameters:
-    - image_dir: str or Path — directory with aligned images
-    - output_dir: str or Path — root directory to save diagnostics
-    - blend_alpha: float — blending ratio (0.0 to 1.0), 0.5 = equal blend
+    - image_dir: Path to aligned images
+    - output_dir: Path to diagnostics output
+    - reference_dir: Optional Path to reference images (1-to-1 comparison)
+    - blend_alpha: Alpha blending factor (0.0 to 1.0)
     """
     image_dir = Path(image_dir)
     output_dir = Path(output_dir) / "overlay_diagnostics"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     image_paths = sorted([p for p in image_dir.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
-    if len(image_paths) < 2:
-        logger.info(f"❌ Need at least 2 images to compare in {image_dir}")
-        return
+    if reference_dir:
+        reference_dir = Path(reference_dir)
+        if reference_dir.is_file():
+            # Single image file used for all comparisons
+            reference_paths = [reference_dir] * len(image_paths)
+        elif reference_dir.is_dir():
+            reference_paths = sorted([p for p in reference_dir.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
+        else:
+            logger.error(f"❌ Invalid reference path: {reference_dir}")
+            return
 
-    ref_image_path = image_paths[0]
-    ref = cv2.imread(str(ref_image_path))
-    if ref is None:
-        print(f"❌ Failed to read reference image: {ref_image_path}")
-        return
+        if len(image_paths) != len(reference_paths):
+            logger.warning(f"❌ Image count mismatch: {len(image_paths)} aligned vs {len(reference_paths)} reference")
+            return
 
-    logger.info(f"🔍 Using reference: {ref_image_path.name}")
+        for img_path, ref_path in tqdm(zip(image_paths, reference_paths), total=len(image_paths),
+                                       desc=f"Overlaying images in {image_dir.name}"):
+            img = cv2.imread(str(img_path))
+            ref = cv2.imread(str(ref_path))
 
-    for aligned_path in tqdm(image_paths[1:], desc=f"Overlaying images in {image_dir.name}"):
-        aligned = cv2.imread(str(aligned_path))
-        if aligned is None:
-            print(f"⚠️ Skipping unreadable image: {aligned_path.name}")
-            continue
+            if img is None or ref is None:
+                logger.warning(f"⚠️ Skipping unreadable pair: {img_path.name}, {ref_path.name}")
+                continue
 
-        # Resize aligned image to match reference
-        aligned_resized = cv2.resize(aligned, (ref.shape[1], ref.shape[0]))
-        blended = cv2.addWeighted(ref, blend_alpha, aligned_resized, 1 - blend_alpha, 0)
+            ref_resized = cv2.resize(ref, (img.shape[1], img.shape[0]))
+            blended = cv2.addWeighted(ref_resized, blend_alpha, img, 1 - blend_alpha, 0)
+            side_by_side = np.concatenate([ref_resized, img, blended], axis=1)
 
-        side_by_side = np.concatenate([ref, aligned_resized, blended], axis=1)
-        out_path = output_dir / f"diag_{aligned_path.name}"
-        cv2.imwrite(str(out_path), side_by_side)
-        logger.info(f"✅ Saved diagnostic: {out_path.name}")
+            out_path = output_dir / f"diag_{img_path.name}"
+            cv2.imwrite(str(out_path), side_by_side)
+            logger.info(f"✅ Saved diagnostic: {out_path.name} in {out_path}")
+
+    else:
+        if len(image_paths) < 2:
+            logger.info(f"❌ Need at least 2 images in {image_dir}")
+            return
+
+        ref_path = image_paths[0]
+        ref = cv2.imread(str(ref_path))
+        if ref is None:
+            logger.warning(f"❌ Failed to read reference image: {ref_path.name}")
+            return
+
+        logger.info(f"🔍 Using reference: {ref_path.name}")
+
+        for aligned_path in tqdm(image_paths[1:], desc=f"Overlaying images in {image_dir.name}"):
+            aligned = cv2.imread(str(aligned_path))
+            if aligned is None:
+                logger.warning(f"⚠️ Skipping unreadable image: {aligned_path.name}")
+                continue
+
+            aligned_resized = cv2.resize(aligned, (ref.shape[1], ref.shape[0]))
+            blended = cv2.addWeighted(ref, blend_alpha, aligned_resized, 1 - blend_alpha, 0)
+            side_by_side = np.concatenate([ref, aligned_resized, blended], axis=1)
+
+            out_path = output_dir / f"diag_{aligned_path.name}"
+            cv2.imwrite(str(out_path), side_by_side)
+            logger.info(f"✅ Saved diagnostic: {out_path.name}")
+
         
         
 # ------------------------------
@@ -316,7 +350,8 @@ def stack_intensity_heatmap(image_dir, save_path, reference_path=None, normalize
     """
     image_dir = Path(image_dir)
     image_paths = sorted([p for p in image_dir.iterdir() if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
-
+    num_images = len(image_paths)
+    
     if not image_paths:
         print("❌ No images to process.")
         return
@@ -334,6 +369,7 @@ def stack_intensity_heatmap(image_dir, save_path, reference_path=None, normalize
         ref = Image.open(reference_path).convert('HSV').resize((width, height))
         _, _, v_ref = ref.split()
         stack -= np.array(v_ref, dtype=np.float32)
+        num_images += 1
 
     if normalize:
         min_val = np.min(stack)
@@ -345,7 +381,8 @@ def stack_intensity_heatmap(image_dir, save_path, reference_path=None, normalize
 
     plt.figure(figsize=(10, 6))
     im = plt.imshow(stack, cmap='viridis')
-    plt.title("Normalized Stacked V-Channel Heatmap" if normalize else "Stacked V-Channel Heatmap")
+    title = f"{'Normalized ' if normalize else ''}Stacked V-Channel Heatmap\n({num_images} image{'s' if num_images != 1 else ''} used)"
+    plt.title(title)
     plt.colorbar(im, label='Normalized Intensity' if normalize else 'Accumulated Intensity')
     plt.xlabel("Column Index")
     plt.ylabel("Row Index")

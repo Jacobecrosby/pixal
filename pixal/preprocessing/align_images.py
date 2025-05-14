@@ -33,13 +33,15 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         prev_image = ref_images[0]
        
     else:
-        images = [cv2.imread(str(p)) for p in image_paths]
+        images = [cv2.imread(str(p)) for p in image_paths[1:]]
+        ref_images = [cv2.imread(image_paths[0])]
         if any(img is None for img in images):
             raise ValueError("One or more images could not be loaded.")
-        prev_image = images[0]
         
-    prev_gray = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
-    prev_kp, prev_des = sift.detectAndCompute(prev_gray, None)
+       # prev_image = images[0]
+        
+    #prev_gray = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
+    ##prev_kp, prev_des = sift.detectAndCompute(prev_gray, None)
     results = []
 
     # sets starting image. m = 1 if detect is False, m = 0 if detect is True
@@ -60,7 +62,7 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         best_alignment = None
         best_metrics = {"score": -1, "mse": float("inf")}
         best_path = None
-
+ 
         for j, ref_image in enumerate(ref_images):
             prev_gray = cv2.cvtColor(ref_image, cv2.COLOR_BGR2GRAY)
             prev_kp, prev_des = sift.detectAndCompute(prev_gray, None)
@@ -123,17 +125,14 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         logger.info("Starting metric plotting")
         mod.save_alignment_metrics_csv(results,metric_dir)
         mod.plot_alignment_metrics(results,metric_dir)
-        print(results)
-        print("ref index: ", results["index"])
-        print("ref index: ",reference_dir[(results["index"])])
         if detect:
-            mod.stack_intensity_heatmap(save_dir,metric_dir,reference_dir[results["index"]])
+            mod.stack_intensity_heatmap(save_dir,metric_dir,reference_dir[results[0]["index"]])
         else:
             mod.stack_intensity_heatmap(save_dir,metric_dir)
         
         metric_dir = metric_dir / "overlay_diagnostics"
         metric_dir.mkdir(parents=True, exist_ok=True)
-        mod.save_overlay_diagnostics(save_dir,metric_dir)
+        mod.save_overlay_diagnostics(save_dir,metric_dir,reference_dir[results[0]["index"]],logger)
 
 def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=None, quiet=False, detect=False):
     input_path = Path(input_dir)

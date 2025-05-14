@@ -44,7 +44,7 @@ def run_remove_background(input_dir, config=None,quiet=False):
 
     # Set up logging
     log_path = resolve_path(path_config.log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True) #bad line?
     logging.basicConfig(
         filename=log_path / "preprocessing.log",
         filemode="w",
