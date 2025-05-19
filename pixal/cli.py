@@ -40,7 +40,7 @@ def main():
 
         # Train
         train_cmd = subparsers.add_parser("train", help="Train an autoencoder model")
-        train_cmd.add_argument("--input", "-i", required=True, help="Input data")
+        train_cmd.add_argument("--input", "-i", required=False, help="Input data")
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Detect
@@ -62,11 +62,15 @@ def main():
         elif args.command == "train":
             if train_model is None:
                 from pixal.train_model import train_model
-            train_model.run(args.input, config=cfg, quiet=args.quiet)
+            train_model.run(args.input,config=cfg, quiet=args.quiet)
+        elif args.command == "validate":
+            if detect is None:
+                from pixal.validate import runner as validation_runner
+            validation_runner.run_validation(args.input, config=cfg,quiet=args.quiet)
         elif args.command == "detect":
             if detect is None:
                 from pixal.validate import runner as validation_runner
-            validation_runner.run_detection(args.input, config=cfg,quiet=args.quiet)
+            validation_runner.run_detection(args.input, config=cfg, quiet=args.quiet)
     except Exception as e:
         exc_type, exc_value, exc_tb = sys.exc_info()
         tb = traceback.extract_tb(exc_tb)[-1]  # Get the last traceback entry

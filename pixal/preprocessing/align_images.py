@@ -132,7 +132,10 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         
         metric_dir = metric_dir / "overlay_diagnostics"
         metric_dir.mkdir(parents=True, exist_ok=True)
-        mod.save_overlay_diagnostics(save_dir,metric_dir,reference_dir[results[0]["index"]],logger)
+        reference_images = None
+        if reference_dir:
+            reference_images = reference_dir[results[0]["index"]]
+        mod.save_overlay_diagnostics(save_dir,metric_dir,reference_images,logger)
 
 def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=None, quiet=False, detect=False):
     input_path = Path(input_dir)

@@ -1,8 +1,12 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, precision_recall_curve, auc
 import cv2
 import os
+import logging 
+
+logger = logging.getLogger("pixal")
 
 def plot_mse_heatmap(model, X_test, y_test, output_dir="mse_plots"):
     """
@@ -22,7 +26,7 @@ def plot_mse_heatmap(model, X_test, y_test, output_dir="mse_plots"):
     mse = np.mean((X_test - predictions) ** 2, axis=1)  # Mean MSE per image
     pixel_mse = np.mean((X_test - predictions) ** 2, axis=0)  # Mean MSE per pixel across dataset
 
-    print(f"Mean MSE across test set: {np.mean(mse):.6f}")
+    logger.info(f"Mean MSE across test set: {np.mean(mse):.6f}")
 
     # Iterate over images
     for i in range(min(5, len(X_test))):  # Show first 5 images
@@ -74,14 +78,18 @@ def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="ana
     predictions = model.predict([X_test, y_test])  # Predict reconstructed images
 
     for i in range(min(5, len(X_test))):  # Limit to first 5 examples
+
         original_flat = X_test[i]
         reconstructed_flat = predictions[i]
-
-        original_img = original_flat.reshape(image_shape)
-        reconstructed_img = reconstructed_flat.reshape(image_shape)
+        height, width = image_shape
+        
+        original_img = original_flat.reshape((height, width, 3))
+        avg_original_img = np.mean(original_img, axis=-1)  # Shape becomes (height, width)
+        reconstructed_img = reconstructed_flat.reshape((height, width, 3))
+        avg_reconstructed_img = np.mean(reconstructed_img, axis=-1)  # Shape becomes (height, width)
 
         # Compute per-pixel squared error
-        error_map = np.square(original_img - reconstructed_img)
+        error_map = np.square(avg_original_img - avg_reconstructed_img)
 
         # Normalize the error map to [0, 1] for heatmap scaling
         norm_error_map = (error_map - np.min(error_map)) / (np.max(error_map) - np.min(error_map) + 1e-8)
@@ -90,7 +98,7 @@ def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="ana
         anomaly_mask = (norm_error_map >= threshold).astype(np.uint8)
 
         # Convert original grayscale to BGR for overlaying
-        original_bgr = cv2.cvtColor((original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        original_bgr = cv2.cvtColor((avg_original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR) # SHOULD I USE THE AVG IMAGE?
 
         # Create color heatmap
         heatmap_raw = (norm_error_map * 255).astype(np.uint8)
@@ -116,7 +124,7 @@ def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="ana
         plt.savefig(os.path.join(output_dir, f"anomaly_overlay_{i}.png"))
         plt.close()
 
-        print(f"Saved: anomaly_overlay_{i}.png")
+        logger.info(f"Saved: anomaly_overlay_{i}.png")
 
 def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="analysis_plots"):
     """
@@ -136,7 +144,7 @@ def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="ana
 
     # Compute per-image MSE
     mse_per_image = np.mean((X_test - predictions) ** 2, axis=1)
-    print("Shape of mse_per_image:", mse_per_image.shape)
+    logger.info(f"Shape of mse_per_image: {mse_per_image.shape}")
 
     # Plot histogram of MSE distribution
     plt.figure(figsize=(8, 5))
@@ -157,10 +165,15 @@ def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="ana
     # Plot per-pixel MSE for the first few images
     num_images_to_plot = min(5, X_test.shape[0])
     for i in range(num_images_to_plot):
-        mse_image = per_pixel_mse[i].reshape(image_shape)
+        # Recover the image shape with 3 channels
+        height, width = image_shape
+        mse_image = per_pixel_mse[i].reshape((height, width, 3))
+
+        # Average across the HSV channels
+        mse_image_avg = np.mean(mse_image, axis=-1)  # Shape becomes (height, width)
 
         plt.figure(figsize=(8, 5))
-        plt.imshow(mse_image, cmap='hot', interpolation='nearest')
+        plt.imshow(mse_image_avg, cmap='hot', interpolation='nearest')
         plt.colorbar(label='MSE per Pixel')
         plt.title(f"Per-Pixel MSE for Test Image {i}")
         plt.axis('off')
@@ -189,7 +202,7 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
 
     # Compute absolute validation loss per image
     abs_loss_per_image = np.mean(np.abs(X_test - predictions), axis=1)
-    print("Shape of abs_loss_per_image:", abs_loss_per_image.shape)
+    logger.info(f"Shape of abs_loss_per_image: {abs_loss_per_image.shape}")
 
     # Plot histogram of absolute validation loss distribution
     plt.figure(figsize=(8, 5))
@@ -210,10 +223,14 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
     # Plot per-pixel absolute loss for the first few images
     num_images_to_plot = min(5, X_test.shape[0])
     for i in range(num_images_to_plot):
-        loss_image = per_pixel_abs_loss[i].reshape(image_shape)
+        height, width = image_shape
+        loss_image = per_pixel_abs_loss[i].reshape((height, width, 3))
+
+         # Average across the HSV channels
+        loss_image_avg = np.mean(loss_image, axis=-1)  # Shape becomes (height, width)
 
         plt.figure(figsize=(8, 5))
-        plt.imshow(loss_image, cmap='hot', interpolation='nearest')
+        plt.imshow(loss_image_avg, cmap='hot', interpolation='nearest')
         plt.colorbar(label='Absolute Loss per Pixel')
         plt.title(f"Per-Pixel Absolute Validation Loss for Test Image {i}")
         plt.axis('off')
@@ -222,3 +239,85 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
         plt.close()
 
     return abs_loss_per_image
+
+
+from sklearn.metrics import roc_curve, precision_recall_curve, auc
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output_dir="analysis_plots"):
+    """
+    Plot ROC and Precision-Recall curves per image based on pixel-level reconstruction error.
+
+    Parameters:
+        model: Trained model.
+        x_test: Test input (n_images, n_pixels).
+        y_test: Pixel-wise ground truth labels (n_images, n_pixels).
+        title_prefix: Optional title prefix.
+        output_dir: Directory to save plots.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    predictions = model.predict([x_test, y_test])
+    recon_error = (x_test - predictions) ** 2  # (n_images, n_pixels)
+
+    n_images = x_test.shape[0]
+
+    for i in range(n_images):
+        x_true = x_test[i].flatten().astype(int)
+        x_scores = recon_error[i].flatten()
+
+        # ROC and AUC
+        fpr, tpr, _ = roc_curve(x_true, x_scores)
+        roc_auc = auc(fpr, tpr)
+
+        # Precision-Recall and AUC
+        precision, recall, _ = precision_recall_curve(x_true, x_scores)
+        pr_auc = auc(recall, precision)
+
+        # Plot
+        plt.figure(figsize=(12, 5))
+
+        # ROC
+        plt.subplot(1, 2, 1)
+        plt.plot(fpr, tpr, label=f'AUC = {roc_auc:.2f}', color='blue')
+        plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title(f'{title_prefix}ROC Curve (Image {i})')
+        plt.legend(loc='lower right')
+        plt.grid(True)
+
+        # PR
+        plt.subplot(1, 2, 2)
+        plt.plot(recall, precision, label=f'AUC = {pr_auc:.2f}', color='green')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title(f'{title_prefix}Precision-Recall Curve (Image {i})')
+        plt.legend(loc='upper right')
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, f"anomaly_detection_curves_image_{i}.png"))
+        plt.close()
+
+
+def plot_pixel_predictions(model,x_true,y_true, title="Pixel-wise Prediction Accuracy",output_dir="analysis_plots"):
+
+    predictions = model.predict([x_true, y_true])
+    x_flat = x_true.flatten()
+    y_flat = predictions.flatten()
+
+    print("x_true range:", x_flat.min(), x_flat.max())
+    print("predictions range:", y_flat.min(), y_flat.max())
+    
+    plt.figure(figsize=(6, 6))
+    plt.scatter(x_true.flatten(), predictions.flatten(), alpha=0.3, s=1)
+    plt.plot([0, 1], [0, 1], 'r--')  # Diagonal line
+    plt.xlabel("True Pixel Value")
+    plt.ylabel("Predicted Pixel Value")
+    plt.title(title)
+    plt.grid(True)
+    plt.axis('equal')
+    plt.savefig(os.path.join(output_dir, "pixel_predictions.png"))

@@ -16,12 +16,13 @@ import logging
 logger = logging.getLogger("pixal")
 
 class ImageDataProcessor:
-    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), quiet=False):
+    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False):
         self.image_folders = image_folders
         self.pool_size = pool_size
         self.image_shape = None 
         self.channels = channels
         self.quiet = quiet
+        self.file_name = file_name
 
     def find_divisible_size(self, h, w):
         new_h = h - (h % self.pool_size)
@@ -125,7 +126,7 @@ class ImageDataProcessor:
     def save_data(self, output_dir):
         data, labels = self.load_and_label_data()
         if data is not None and labels is not None:
-            output_file = output_dir / "out.npz"
+            output_file = output_dir / self.file_name
             if not self.quiet:
                 logger.info(f"Image shape after pooling: {self.image_shape}")
             np.savez(output_file, 
@@ -146,6 +147,7 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
 
     pool_size = config.preprocessor.pool_size if config and hasattr(config.preprocessor, 'pool_size') else 4
     channels = config.preprocessor.channels if config and hasattr(config.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
+    file_name = config.preprocessor.file_name if config and hasattr(config.preprocessor, 'file_name') else "out.npz"
   
-    processor = ImageDataProcessor(image_folders, pool_size=pool_size, channels=channels, quiet=quiet)
+    processor = ImageDataProcessor(image_folders, pool_size=pool_size, channels=channels, file_name=file_name, quiet=quiet)
     processor.save_data(output_dir)

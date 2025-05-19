@@ -202,10 +202,10 @@ class Autoencoder(tf.keras.Model):
         # Generate predictions
         return self.predict(new_data)
     
-    def save_model(self, save_path):
+    def save_model(self, save_path, save_format='tf'):
         """Save the model to the specified path."""
-        self.save(save_path)
-        print(f"Model saved to {save_path}")
+        self.save(save_path, save_format=save_format)
+        self.logger(f"Model saved to {save_path}")
       
     @classmethod
     def load_model(cls, load_path):

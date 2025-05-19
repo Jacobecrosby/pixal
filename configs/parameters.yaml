@@ -31,10 +31,11 @@ save_metrics: True                                # Save alignment metrics
 
 # Settings for preprocessing images to .npz format for ML input
 preprocessor:
+  file_name: "out.npz"
   pool_size: 4                                   # Pooling size for image pixels (e.g. 2x2 pooling) 
   channels: ["H","S","V"]                        # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]) ["R", "G", "B","H","S","V"]
 
-rename_images: True                            # Rename images to folder name (R0_Triplet_Data_Flex_F1_F_Pink_bg/image.png -> R0_Triplet_Data_Flex_F1_F_Pink_bg/R0_Triplet_Data_Flex_F1_F_Pink_bg.png)
+rename_images: True                              # Rename images to folder name (R0_Triplet_Data_Flex_F1_F_Pink_bg/image.png -> R0_Triplet_Data_Flex_F1_F_Pink_bg/R0_Triplet_Data_Flex_F1_F_Pink_bg.png)
 
 ########### ----> Memory Handling, Inputs and Hyperparameters<----####
 
@@ -50,6 +51,7 @@ HYBRID_MODE: False  # utilize both CPU and GPU
 
 ########## ----> Model <---- ###########
 model_name: "testModel" 
+model_file_extension: "keras" # tf, h5, or keras
 seed: 101
 
 #### ----> Architecture <---- ####

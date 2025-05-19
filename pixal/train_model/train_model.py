@@ -39,7 +39,9 @@ def run(input_file, config, quiet):
     model_dir = resolve_path(path_config.model_path)
     model_dir.mkdir(parents=True, exist_ok=True)
     
-    input_file = Path(input_file)
+    if not input_file:
+        input_file = resolve_path(path_config.component_model_path) / config.preprocessor.file_name
+        input_file = Path(input_file)
 
     # Set up logging
     log_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -113,7 +115,7 @@ def run(input_file, config, quiet):
 
     input_dim = X.shape[1]
 
-    model_file = os.path.join(model_dir, config.model_name + ".h5")
+    model_file = os.path.join(model_dir, config.model_name)
     figs_path = resolve_path(path_config.fig_path)
     figs_path.mkdir(parents=True, exist_ok=True)
     
@@ -142,7 +144,7 @@ def run(input_file, config, quiet):
     autoencoder.compile_and_train(x_train, y_train, x_val, y_val, params)
 
     logging.info(f"Saving model to {model_file}")
-    autoencoder.save_model(model_file)
+    autoencoder.save_model(model_file,config.model_file_extension)
 
     total_time = datetime.datetime.now() - datetime.datetime.strptime(log_time, "%H-%M-%S").replace(
         year=datetime.datetime.now().year,
