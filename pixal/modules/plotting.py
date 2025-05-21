@@ -241,10 +241,6 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
     return abs_loss_per_image
 
 
-from sklearn.metrics import roc_curve, precision_recall_curve, auc
-import matplotlib.pyplot as plt
-import numpy as np
-import os
 
 def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output_dir="analysis_plots"):
     """
@@ -258,10 +254,15 @@ def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output
         output_dir: Directory to save plots.
     """
     os.makedirs(output_dir, exist_ok=True)
-
+    print("here1")
     predictions = model.predict([x_test, y_test])
     recon_error = (x_test - predictions) ** 2  # (n_images, n_pixels)
+    x_flat = x_test.flatten()
+    y_flat = predictions.flatten()
 
+    print("x_true range:", x_flat.min(), x_flat.max())
+    print("predictions range:", y_flat.min(), y_flat.max())
+    
     n_images = x_test.shape[0]
 
     for i in range(n_images):
@@ -275,7 +276,7 @@ def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output
         # Precision-Recall and AUC
         precision, recall, _ = precision_recall_curve(x_true, x_scores)
         pr_auc = auc(recall, precision)
-
+        print("here3")
         # Plot
         plt.figure(figsize=(12, 5))
 
@@ -304,7 +305,7 @@ def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output
 
 
 def plot_pixel_predictions(model,x_true,y_true, title="Pixel-wise Prediction Accuracy",output_dir="analysis_plots"):
-
+    print("here2")
     predictions = model.predict([x_true, y_true])
     x_flat = x_true.flatten()
     y_flat = predictions.flatten()
@@ -321,3 +322,23 @@ def plot_pixel_predictions(model,x_true,y_true, title="Pixel-wise Prediction Acc
     plt.grid(True)
     plt.axis('equal')
     plt.savefig(os.path.join(output_dir, "pixel_predictions.png"))
+
+def plot_predictions(model, x_test, y_test, output_dir="analysis_plots"):
+    """
+    Plot pixel-wise predictions of the model.
+
+    Parameters:
+        model: Trained model.
+        x_test: Test input (n_images, n_pixels).
+        y_test: Pixel-wise ground truth labels (n_images, n_pixels).
+        title: Title for the plot.
+        output_dir: Directory to save the plot.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    predictions = model.predict([x_test, y_test])
+
+
+    plt.hist(predictions.flatten(), bins=100)
+    plt.title("Distribution of Model Predictions")
+    plt.savefig(os.path.join(output_dir, "prediction_distribution.png"))
+

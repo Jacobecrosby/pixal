@@ -115,7 +115,7 @@ def run(input_file, config, quiet):
 
     input_dim = X.shape[1]
 
-    model_file = os.path.join(model_dir, config.model_name)
+    model_file = os.path.join(model_dir, config.model_name + "." + config.model_file_extension)
     figs_path = resolve_path(path_config.fig_path)
     figs_path.mkdir(parents=True, exist_ok=True)
     
@@ -137,14 +137,15 @@ def run(input_file, config, quiet):
         'fig_path': str(figs_path),
         'model_path': str(model_dir),
         'num_classes': y_train.shape[1],
-        'label_latent_size': config.label_latent_size
+        'label_latent_size': config.label_latent_size,
+        'output_activation': config.output_activation
     }
 
     autoencoder = Autoencoder(params)
     autoencoder.compile_and_train(x_train, y_train, x_val, y_val, params)
 
     logging.info(f"Saving model to {model_file}")
-    autoencoder.save_model(model_file,config.model_file_extension)
+    autoencoder.save_model(model_file)
 
     total_time = datetime.datetime.now() - datetime.datetime.strptime(log_time, "%H-%M-%S").replace(
         year=datetime.datetime.now().year,

@@ -56,8 +56,8 @@ seed: 101
 
 #### ----> Architecture <---- ####
 
-autoencoder_architecture: [800,400,200,100,50] # Last index is latent layer. Gets mirrored in code
-label_latent_size: 50 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
+autoencoder_architecture: [1200,800,400,200] # Last index is latent layer. Gets mirrored in code
+label_latent_size: 200 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 
 ########## ----> Training <---- ##########
 use_gradient_tape: False # Gradient tape is used for full control of training cycle. Such as custom loss functions, custom optimization, etc. (reinforcement learning, adversarial learning)
@@ -66,14 +66,15 @@ use_gradient_tape: False # Gradient tape is used for full control of training cy
 n_epochs: 500
 batchsize: 8
 
-learning_rate: 1e-5
-l2_regularization: 0.01 #smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
+learning_rate: 1e-4
+l2_regularization: 0.001 #smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
 loss_function: "mse"
 metric_accuracy: "SparseCategoricalAccuracy" #CategoricalAccuracy <--- May need this when implementing image sets
+output_activation: "sigmoid" # sigmoid, softmax, tanh, relu, linear
 
 ### ----> STOP LOSS <---- ###
-patience: 30
-min_delta: 3
+patience: 10
+min_delta: 0.001
 
 #
 ##

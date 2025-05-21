@@ -29,16 +29,17 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
     y_test = dataset["labels"]
     image_shape = dataset["shape"]
 
-    # Normalize and flatten
-    X_test = X_test / np.max(X_test)
+    # Flatten
     X_test = X_test.reshape(X_test.shape[0], -1)
-
     y_test = y_test.reshape(y_test.shape[0], -1)
    
     # Load trained model
     model = (model_dir / f"{config.model_name}.{config.model_file_extension}")
     model = autoencoder.Autoencoder.load_model(model)
     #model = tf.keras.models.load_model(model)
+    
+    # plot prediction distribution
+    pltm.plot_predictions(model, X_test, y_test, metric_dir / "validation")
     
     # Run MSE analysis
     pltm.analyze_mse_distribution(model, X_test, y_test, image_shape, metric_dir / "validation")
@@ -54,6 +55,7 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
     # Run pixel-wise predictions
     pltm.plot_anomaly_detection_curves(model,X_test,y_test, '', metric_dir / "validation")
 
+    # Run pixel-wise predictions
     pltm.plot_pixel_predictions(model,X_test,y_test, "Pixel-wise Prediction Accuracy",metric_dir / "validation")
 
 

@@ -73,7 +73,7 @@ class Autoencoder(tf.keras.Model):
 
         # Output layer
         #self.output_layer = tf.keras.layers.Dense(input_dim, activation=tf.nn.leaky_relu, name="output") # May need sigmoid for activation
-        self.output_layer = tf.keras.layers.Dense(input_dim, activation=tf.nn.leaky_relu, name="output") # tf.nn.leaky_relu or sigmoid
+        self.output_layer = tf.keras.layers.Dense(input_dim, activation=params['output_activation'], name="output") # tf.nn.leaky_relu or sigmoid
         self.logger.info("Autoencoder model initialized successfully.")
 
     def call(self, inputs):
@@ -202,10 +202,10 @@ class Autoencoder(tf.keras.Model):
         # Generate predictions
         return self.predict(new_data)
     
-    def save_model(self, save_path, save_format='tf'):
+    def save_model(self, save_path):
         """Save the model to the specified path."""
-        self.save(save_path, save_format=save_format)
-        self.logger(f"Model saved to {save_path}")
+        self.save(save_path)
+        self.logger.info(f"Model saved to {save_path}")
       
     @classmethod
     def load_model(cls, load_path):

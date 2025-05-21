@@ -61,6 +61,11 @@ class ImageDataProcessor:
         for ch in self.channels:
             if ch in channel_map:
                 pooled = self.apply_average_pooling(channel_map[ch])
+                # Normalize each channel properly
+                if ch == "H":
+                    pooled = pooled / 179.0  # H is in range [0,179]
+                else:
+                    pooled = pooled / 255.0  # S, V, R, G, B are in [0,255]
                 pooled_channels.append(pooled.reshape(-1, 1))
             else:
                 if not self.quiet:
@@ -70,6 +75,9 @@ class ImageDataProcessor:
             return None
 
         combined = np.concatenate(pooled_channels, axis=1)
+        if not self.quiet:
+            logger.info(f"Min/Max of normalized combined image: {combined.min()} - {combined.max()}")
+            
         return combined
 
     def process_images_in_folder(self, folder_path):

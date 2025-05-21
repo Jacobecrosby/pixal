@@ -44,6 +44,11 @@ def main():
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Detect
+        detect_cmd = subparsers.add_parser("validate", help="Run validation (preprocess + detect) on new images")
+        detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
+        detect_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
+
+        # Detect
         detect_cmd = subparsers.add_parser("detect", help="Run anomaly detection on new images")
         detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
         detect_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
