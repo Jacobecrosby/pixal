@@ -73,4 +73,3 @@ plt.ylabel('Row Index')
 plt.show()
 plt.savefig('test2.png', dpi=300, bbox_inches='tight') 
 '''
-print("Images stacked!")

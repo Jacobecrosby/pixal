@@ -21,6 +21,7 @@ import argparse
 import tensorflow as tf
 import datetime
 import sys
+import yaml
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
@@ -29,6 +30,7 @@ import gc
 from pixal.modules.config_loader import load_config
 from pixal.train_model.autoencoder import Autoencoder
 from pixal.modules.config_loader import load_config, resolve_path
+from pixal.modules.model_training import masked_mse_loss
 
 
 def run(input_file, config, quiet):
@@ -42,6 +44,9 @@ def run(input_file, config, quiet):
     if not input_file:
         input_file = resolve_path(path_config.component_model_path) / config.preprocessor.file_name
         input_file = Path(input_file)
+
+    metadata_dir = resolve_path(path_config.metadata_path)
+    metadata_dir.mkdir(parents=True, exist_ok=True)
 
     # Set up logging
     log_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -115,10 +120,16 @@ def run(input_file, config, quiet):
 
     input_dim = X.shape[1]
 
+
     model_file = os.path.join(model_dir, config.model_name + "." + config.model_file_extension)
     figs_path = resolve_path(path_config.fig_path)
     figs_path.mkdir(parents=True, exist_ok=True)
     
+    #if config.loss_function == 'masked_mse':
+    #    loss_fn = masked_mse_loss
+    #else:
+    #    loss_fn = config.loss_function  # e.g., 'mse'
+
     params = {
         'architecture': config.autoencoder_architecture,
         'learning_rate': float(config.learning_rate),
@@ -131,6 +142,8 @@ def run(input_file, config, quiet):
         'use_gradient_tape': config.use_gradient_tape,
         'patience': config.patience,
         'modelName': config.model_name,
+        'regularization': config.regularization,
+        'l1_regularization': config.l1_regularization,
         'l2_regularization': config.l2_regularization,
         'log_date': log_date,
         'timestamp': log_time,
@@ -152,5 +165,12 @@ def run(input_file, config, quiet):
         month=datetime.datetime.now().month,
         day=datetime.datetime.now().day
     )
+    logging.info("keras config...")
+    logging.info(f"Model config: {autoencoder.get_config()}")
     logging.info(f"Total training time: {total_time}")
+    logging.info(f"Saving parameters to {metadata_dir}")
+    params['total_training_time'] = str(total_time)
+    yaml_path = os.path.join(metadata_dir, config.model_name + ".yaml")
+    with open(yaml_path, 'w') as file:
+        yaml.dump(params, file, default_flow_style=False)
     logging.info("Script completed")

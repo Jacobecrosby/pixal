@@ -39,8 +39,10 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
     #model = tf.keras.models.load_model(model)
     
     # plot prediction distribution
-    pltm.plot_predictions(model, X_test, y_test, metric_dir / "validation")
-    
+    pltm.plot_prediction_distribution(model, X_test, y_test, metric_dir / "validation")
+
+    pltm.plot_truth_distribution(X_test, metric_dir / "validation")
+
     # Run MSE analysis
     pltm.analyze_mse_distribution(model, X_test, y_test, image_shape, metric_dir / "validation")
     # Run MSE heatmap visualization

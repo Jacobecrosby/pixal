@@ -16,6 +16,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 sys.stderr.close()
 sys.stderr = stderr_backup
 
+from pixal.modules.model_training import resolve_loss
 import numpy as np
 import yaml
 import logging
@@ -30,6 +31,7 @@ class Autoencoder(tf.keras.Model):
         super(Autoencoder, self).__init__(**kwargs)
 
         self.params = params
+       
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO)
         
@@ -47,11 +49,15 @@ class Autoencoder(tf.keras.Model):
         encoder_arch = params['architecture'][:-1]
 
         self.encoder.add(tf.keras.layers.Input(shape=(input_dim,)))  # Flatten the input dimension
-        
+        if params['regularization'] == 'l1':
+            regularizer = tf.keras.regularizers.l1(params['l1_regularization'])
+        elif params['regularization'] == 'l2':
+            regularizer = tf.keras.regularizers.l2(params['l2_regularization'])
+            
         for i, units in enumerate(encoder_arch):
             self.encoder.add(tf.keras.layers.Dense(units, 
                                                    activation=tf.nn.leaky_relu, # if alpha needs to be changed: activation=lambda x: tf.nn.leaky_relu(x, alpha=0.1))
-                                                   activity_regularizer=tf.keras.regularizers.l2(params['l2_regularization']),
+                                                   activity_regularizer=regularizer,
                                                    name=params['encoder_names'][i]))
 
         # Latent space
@@ -68,11 +74,11 @@ class Autoencoder(tf.keras.Model):
         for i, units in enumerate(decoder_arch):
             self.decoder.add(tf.keras.layers.Dense(units, 
                                                    activation=tf.nn.leaky_relu, 
-                                                   activity_regularizer=tf.keras.regularizers.l2(params['l2_regularization']), 
+                                                   activity_regularizer=regularizer, 
                                                    name=params['decoder_names'][i]))
 
         # Output layer
-        #self.output_layer = tf.keras.layers.Dense(input_dim, activation=tf.nn.leaky_relu, name="output") # May need sigmoid for activation
+        #self.output_layer = tf.keras.layers.Dense(input_dim, activation=tfls.nn.leaky_relu, name="output") # May need sigmoid for activation
         self.output_layer = tf.keras.layers.Dense(input_dim, activation=params['output_activation'], name="output") # tf.nn.leaky_relu or sigmoid
         self.logger.info("Autoencoder model initialized successfully.")
 
@@ -114,6 +120,7 @@ class Autoencoder(tf.keras.Model):
 
     def compile_and_train(self, x_train, y_train, x_val, y_val, params):
         # Early stopping and checkpointing
+        loss_fn = resolve_loss(params['loss_function'])
         early_stopping = EarlyStopping(
             monitor='val_loss',
             patience=params['patience'],
@@ -131,7 +138,7 @@ class Autoencoder(tf.keras.Model):
         # Compile the model
         self.logger.info("Compiling the model...")
         self.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=params['learning_rate']),
-                    loss=params['loss_function'],
+                    loss=loss_fn,
                     metrics=['mse']) # Mean Squared Error (measures reconstruction quality)
         
         if params['use_gradient_tape']:
@@ -168,7 +175,7 @@ class Autoencoder(tf.keras.Model):
             "val_loss": history.history["val_loss"]
             }
         save_dir = params['model_path']
-        logging.info("save_dir: {save_dir}")
+        self.logger.info("save_dir: {save_dir}")
         os.makedirs(save_dir, exist_ok=True)  # Creates the directory if it does not exist
         loss_file_path = os.path.join(save_dir, "loss_history.json")
         with open(loss_file_path, "w") as f:
@@ -192,11 +199,11 @@ class Autoencoder(tf.keras.Model):
         plt.savefig(loss_plot_path)
         plt.close()
         
-        logging.info(f"Loss plot saved to {loss_plot_path}")
+        self.logger.info(f"Loss plot saved to {loss_plot_path}")
 
     def evaluate_model(self, test_data, test_labels):
         # Evaluate the model on test data
-        return self.evaluate(test_data, test_labels)
+        return self.evaluate([test_data, test_labels], test_data)
 
     def predict_model(self, new_data):
         # Generate predictions
@@ -204,6 +211,7 @@ class Autoencoder(tf.keras.Model):
     
     def save_model(self, save_path):
         """Save the model to the specified path."""
+        self.logger.info(f"Saving model to {save_path}...")
         self.save(save_path)
         self.logger.info(f"Model saved to {save_path}")
       
@@ -211,3 +219,6 @@ class Autoencoder(tf.keras.Model):
     def load_model(cls, load_path):
         """Load a saved model from the specified path."""
         return tf.keras.models.load_model(load_path, custom_objects={'Autoencoder': cls})
+
+
+### Need to add masked_mse_loss 

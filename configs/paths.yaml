@@ -65,3 +65,7 @@ aligned_metrics_path: &aligned_metrics_path
 validate_aligned_metrics_path: &validate_aligned_metrics_path
   metrics: "aligned_metrics"
   base: *validate_fig_path
+
+metadata_path: &metadata_path
+  metadata: "metadata"
+  base: *component_model_path

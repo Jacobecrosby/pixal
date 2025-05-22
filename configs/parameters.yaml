@@ -51,7 +51,7 @@ HYBRID_MODE: False  # utilize both CPU and GPU
 
 ########## ----> Model <---- ###########
 model_name: "testModel" 
-model_file_extension: "keras" # tf, h5, or keras
+model_file_extension: "keras" # h5, or keras # need to add SavedModel format
 seed: 101
 
 #### ----> Architecture <---- ####
@@ -64,11 +64,13 @@ use_gradient_tape: False # Gradient tape is used for full control of training cy
 
 ### ----> NN Hyperparameters <---- ###
 n_epochs: 500
-batchsize: 8
+batchsize: 4
 
-learning_rate: 1e-4
-l2_regularization: 0.001 #smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
-loss_function: "mse"
+learning_rate: 1e-5
+regularization: 'l2' # or 'l1' 
+l1_regularization: 0.001 # Encourages zero weights. Helps feature selection. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
+l2_regularization: 0.0001 # Discourages zero weights. General stability. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
+loss_function: "masked_mse" # "mse", 'mae'
 metric_accuracy: "SparseCategoricalAccuracy" #CategoricalAccuracy <--- May need this when implementing image sets
 output_activation: "sigmoid" # sigmoid, softmax, tanh, relu, linear
 

@@ -26,6 +26,7 @@ dependencies = [
   "matplotlib",
   "tqdm",
   "onnxruntime-gpu",
+  "pyyaml",
 ]
 
 [project.scripts]

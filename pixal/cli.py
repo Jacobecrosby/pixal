@@ -43,14 +43,14 @@ def main():
         train_cmd.add_argument("--input", "-i", required=False, help="Input data")
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
-        # Detect
+        # Validate
         detect_cmd = subparsers.add_parser("validate", help="Run validation (preprocess + detect) on new images")
         detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
         detect_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Detect
         detect_cmd = subparsers.add_parser("detect", help="Run anomaly detection on new images")
-        detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
+        #detect_cmd.add_argument("--input","-i", required=True, help="Folder with test images")
         detect_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
         
         args = parser.parse_args()
@@ -75,7 +75,7 @@ def main():
         elif args.command == "detect":
             if detect is None:
                 from pixal.validate import runner as validation_runner
-            validation_runner.run_detection(args.input, config=cfg, quiet=args.quiet)
+            validation_runner.run_detection(config=cfg, quiet=args.quiet)
     except Exception as e:
         exc_type, exc_value, exc_tb = sys.exc_info()
         tb = traceback.extract_tb(exc_tb)[-1]  # Get the last traceback entry

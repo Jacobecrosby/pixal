@@ -43,7 +43,7 @@ def run_validation(input_dir, config=None,quiet=False):
     from pixal.validate import detect
     detect.run(npz_dir, model_dir, metric_dir, config=config, quiet=quiet)
 
-def run_detection(input_dir, config=None, quiet=False):
+def run_detection(config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
     config = load_config("configs/parameters.yaml")
     
