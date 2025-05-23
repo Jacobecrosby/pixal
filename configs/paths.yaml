@@ -9,7 +9,7 @@ component_model_path: &component_model_path
   base: *out_path
 
 component_validate_path: &component_validate_path
-  component: "R0_Triplet_Data_Flex_F1"
+  component: "R0_Triplet_Data_Flex_F1_l1"
   base: *validate_out_path
 
 # ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 

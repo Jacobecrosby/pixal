@@ -1,14 +1,15 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, precision_recall_curve, auc
+from sklearn.metrics import roc_curve, precision_recall_curve, auc, confusion_matrix, ConfusionMatrixDisplay
+import itertools
 import cv2
 import os
 import logging 
 
 logger = logging.getLogger("pixal")
 
-def plot_mse_heatmap(model, X_test, y_test, output_dir="mse_plots"):
+def plot_mse_heatmap(X_test, predictions, output_dir="mse_plots"):
     """
     Computes per-pixel MSE and overlays an anomaly heatmap on the original images.
     
@@ -19,8 +20,6 @@ def plot_mse_heatmap(model, X_test, y_test, output_dir="mse_plots"):
         output_dir: Directory to save plots.
     """
     os.makedirs(output_dir, exist_ok=True)
-
-    predictions = model.predict([X_test, y_test])  # Predict reconstructed images
 
     # Compute per-pixel MSE
     mse = np.mean((X_test - predictions) ** 2, axis=1)  # Mean MSE per image
@@ -61,7 +60,7 @@ def plot_mse_heatmap(model, X_test, y_test, output_dir="mse_plots"):
     return mse
 
 
-def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="analysis_plots", threshold=0.01):
+def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analysis_plots", threshold=0.01):
     """
     Computes per-pixel MSE and overlays an anomaly heatmap on the original images.
 
@@ -74,8 +73,6 @@ def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="ana
         threshold: MSE value above which pixels are considered anomalous.
     """
     os.makedirs(output_dir, exist_ok=True)
-
-    predictions = model.predict([X_test, y_test])  # Predict reconstructed images
 
     for i in range(min(5, len(X_test))):  # Limit to first 5 examples
 
@@ -126,7 +123,7 @@ def plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, output_dir="ana
 
         logger.info(f"Saved: anomaly_overlay_{i}.png")
 
-def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="analysis_plots"):
+def analyze_mse_distribution(X_test, predictions, image_shape, output_dir="analysis_plots"):
     """
     Computes and plots the MSE distribution per image and visualizes per-pixel MSE for individual images.
 
@@ -139,8 +136,6 @@ def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="ana
     """
 
     os.makedirs(output_dir, exist_ok=True)
-
-    predictions = model.predict([X_test, y_test])
 
     # Compute per-image MSE
     mse_per_image = np.mean((X_test - predictions) ** 2, axis=1)
@@ -184,7 +179,7 @@ def analyze_mse_distribution(model, X_test, y_test, image_shape, output_dir="ana
     return mse_per_image
 
 
-def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir="analysis_plots"):
+def analyze_pixel_validation_loss(X_test, predictions, image_shape, output_dir="analysis_plots"):
     """
     Computes and visualizes per-pixel absolute validation loss (difference) per image.
 
@@ -197,8 +192,6 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
     """
 
     os.makedirs(output_dir, exist_ok=True)
-
-    predictions = model.predict([X_test, y_test])
 
     # Compute absolute validation loss per image
     abs_loss_per_image = np.mean(np.abs(X_test - predictions), axis=1)
@@ -242,7 +235,7 @@ def analyze_pixel_validation_loss(model, X_test, y_test, image_shape, output_dir
 
 
 
-def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output_dir="analysis_plots"):
+def plot_anomaly_detection_curves(x_test, predictions, title_prefix='', output_dir="analysis_plots"):
     """
     Plot ROC and Precision-Recall curves per image based on pixel-level reconstruction error.
 
@@ -255,7 +248,6 @@ def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output
     """
     os.makedirs(output_dir, exist_ok=True)
    
-    predictions = model.predict([x_test, y_test])
     recon_error = (x_test - predictions) ** 2  # (n_images, n_pixels)
     x_flat = x_test.flatten()
     y_flat = predictions.flatten()
@@ -301,9 +293,8 @@ def plot_anomaly_detection_curves(model, x_test, y_test, title_prefix='', output
         plt.close()
 
 
-def plot_pixel_predictions(model,x_true,y_true, title="Pixel-wise Prediction Accuracy",output_dir="analysis_plots"):
+def plot_pixel_predictions(x_true, predictions, title="Pixel-wise Prediction Accuracy",output_dir="analysis_plots"):
     
-    predictions = model.predict([x_true, y_true])
     x_flat = x_true.flatten()
     y_flat = predictions.flatten()
 
@@ -320,7 +311,7 @@ def plot_pixel_predictions(model,x_true,y_true, title="Pixel-wise Prediction Acc
     plt.axis('equal')
     plt.savefig(os.path.join(output_dir, "pixel_predictions.png"))
 
-def plot_prediction_distribution(model, x_test, y_test, output_dir="analysis_plots"):
+def plot_prediction_distribution(predictions, output_dir="analysis_plots"):
     """
     Plot pixel-wise predictions of the model.
 
@@ -332,12 +323,11 @@ def plot_prediction_distribution(model, x_test, y_test, output_dir="analysis_plo
         output_dir: Directory to save the plot.
     """
     os.makedirs(output_dir, exist_ok=True)
-    predictions = model.predict([x_test, y_test])
 
-
-    plt.hist(predictions.flatten(), bins=100)
+    plt.hist(predictions.flatten(), bins=100,log=True,label="Predictions")
     plt.title("Distribution of Model Predictions")
     plt.savefig(os.path.join(output_dir, "prediction_distribution.png"))
+    plt.close()
 
 def plot_truth_distribution(x_test, output_dir="analysis_plots"):
     """
@@ -354,6 +344,110 @@ def plot_truth_distribution(x_test, output_dir="analysis_plots"):
     #predictions = model.predict([x_test, y_test])
 
 
-    plt.hist(x_test.flatten(), bins=100)
+    plt.hist(x_test.flatten(), bins=100,log=True,label="Truth")
     plt.title("Distribution of Model Predictions")
     plt.savefig(os.path.join(output_dir, "truth_distribution.png"))
+    plt.close()
+
+def plot_combined_distribution(x_test, predictions, output_dir="analysis_plots"):
+    """
+    Plot pixel-wise predictions of the model.
+
+    Parameters:
+        model: Trained model.
+        x_test: Test input (n_images, n_pixels).
+        y_test: Pixel-wise ground truth labels (n_images, n_pixels).
+        title: Title for the plot.
+        output_dir: Directory to save the plot.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    plt.hist(x_test.flatten(), bins=100,log=True,label="Truth",color='blue', alpha=0.5)
+    plt.hist(predictions.flatten(), bins=100,log=True,label="Predictions",color='orange', alpha=0.5)
+    plt.title("Overlayed Distribution of Model Predictions and Truth")
+    plt.xlabel("Pixel Value")
+    plt.ylabel("Log(Frequency)")
+    plt.legend() 
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "combined_distribution.png"))
+    plt.close()
+
+def plot_confusion_matrix(x_true, x_pred, output_dir="analysis_plots"):
+    """
+    Plot confusion matrix for pixel-wise predictions.
+
+    Parameters:
+        y_true: True labels.
+        y_pred: Predicted labels.
+        output_dir: Directory to save the plot.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    cm = tf.math.confusion_matrix(x_true.flatten(), x_pred.flatten(), num_classes=2)
+    cm = cm.numpy()  # convert to NumPy array
+
+    # Normalize the confusion matrix
+    cm_normalized = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+    
+    # Plot confusion matrix
+    plt.figure(figsize=(8, 6))
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title("Confusion Matrix")
+    plt.colorbar()
+    tick_marks = np.arange(2)
+    plt.xticks(tick_marks, ["Normal", "Anomalous"])
+    plt.yticks(tick_marks, ["Normal", "Anomalous"])
+    
+    # Add text annotations
+    thresh = cm_normalized.max() / 2.
+    for i, j in itertools.product(range(cm_normalized.shape[0]), range(cm_normalized.shape[1])):
+        plt.text(j, i, f"{cm_normalized[i, j]:.2f}", horizontalalignment="center",
+                 color="white" if cm_normalized[i, j] > thresh else "black")
+
+    plt.ylabel("True label")
+    plt.xlabel("Predicted label")
+    plt.tight_layout()
+    
+    plt.savefig(os.path.join(output_dir, "confusion_matrix.png"))
+
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+def plot_pixel_loss_and_log_loss(x_true, x_pred, output_dir="analysis_plots"):
+    """
+    Plot histograms of per-pixel reconstruction losses in both linear and log scales.
+
+    Parameters:
+        x_true (np.ndarray): Ground truth image data (flattened or reshaped)
+        x_pred (np.ndarray): Predicted image data (same shape as x_true)
+        output_dir (str): Directory to save plots
+        title_prefix (str): Optional prefix for plot titles
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Compute per-pixel MSE
+    pixel_losses = np.square(x_true - x_pred).flatten()
+
+    # Standard loss histogram
+    plt.figure(figsize=(8, 5))
+    plt.hist(pixel_losses, bins=100, alpha=0.7, color='steelblue')
+    plt.xlabel("Pixel-wise Loss (MSE)")
+    plt.ylabel("Frequency")
+    plt.title("Per-Pixel Loss Distribution")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "pixel_loss_histogram.png"))
+    plt.close()
+
+    # Log-scaled histogram (Y-axis)
+    plt.figure(figsize=(8, 5))
+    plt.hist(pixel_losses, bins=100, alpha=0.7, color='darkorange', log=True)
+    plt.xlabel("Pixel-wise Loss (MSE)")
+    plt.ylabel("Log(Frequency)")
+    plt.title("Log-Scale Per-Pixel Loss Distribution")
+    plt.grid(True, which='both', linestyle='--')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "pixel_loss_log_histogram.png"))
+    plt.close()

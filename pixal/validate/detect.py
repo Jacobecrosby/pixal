@@ -38,28 +38,46 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
     model = autoencoder.Autoencoder.load_model(model)
     #model = tf.keras.models.load_model(model)
     
-    # plot prediction distribution
-    pltm.plot_prediction_distribution(model, X_test, y_test, metric_dir / "validation")
+    predictions = model.predict([X_test, y_test])
+    
+    if config.plotting.plot_distributions:
+        # plot prediction distribution
+        pltm.plot_prediction_distribution(predictions, metric_dir / "validation")
+    
+    if config.plotting.plot_distributions:
+        # plot truth distribution
+        pltm.plot_truth_distribution(X_test, metric_dir / "validation")
 
-    pltm.plot_truth_distribution(X_test, metric_dir / "validation")
+    if config.plotting.plot_distributions:
+        pltm.plot_combined_distribution(X_test, predictions, metric_dir / "validation")
 
     # Run MSE analysis
-    pltm.analyze_mse_distribution(model, X_test, y_test, image_shape, metric_dir / "validation")
+    #pltm.analyze_mse_distribution(X_test, predictions, image_shape, metric_dir / "validation")
     # Run MSE heatmap visualization
     #pltm.plot_mse_heatmap(model, X_test, y_test)
     
     #check validation loss image
-    pltm.analyze_pixel_validation_loss(model, X_test, y_test,image_shape, metric_dir / "validation")
+    #pltm.analyze_pixel_validation_loss(X_test, predictions, image_shape, metric_dir / "validation")
+    
+    if config.plotting.plot_anomaly_heatmap:
+        # Run MSE heatmap overlay
+        pltm.plot_mse_heatmap_overlay(X_test, predictions, image_shape, metric_dir / "validation",threshold=0.7)
+    
+    if config.plotting.plot_roc_recall_curve:
+        # Run pixel-wise predictions
+        pltm.plot_anomaly_detection_curves(X_test, predictions, '', metric_dir / "validation")
+    
+    if config.plotting.plot_pixel_predictions:
+        # Run pixel-wise predictions
+        pltm.plot_pixel_predictions(X_test, predictions, "Pixel-wise Prediction Accuracy",metric_dir / "validation")
+   
+    if config.plotting.plot_confusion_matrix:
+        # Run confusion matrix
+        pltm.plot_confusion_matrix(X_test, predictions, metric_dir / "validation")
 
-    # Run MSE heatmap overlay
-    pltm.plot_mse_heatmap_overlay(model, X_test, y_test, image_shape, metric_dir / "validation",threshold=0.7)
-
-    # Run pixel-wise predictions
-    pltm.plot_anomaly_detection_curves(model,X_test,y_test, '', metric_dir / "validation")
-
-    # Run pixel-wise predictions
-    pltm.plot_pixel_predictions(model,X_test,y_test, "Pixel-wise Prediction Accuracy",metric_dir / "validation")
-
+    if config.plotting.plot_loss:
+        # Run loss analysis
+        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir / "validation")
 
 def run(npz_dir, model_dir, metric_dir, config=None, quiet=False):
     # Load test dataset

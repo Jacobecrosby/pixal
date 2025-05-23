@@ -48,11 +48,23 @@ class Autoencoder(tf.keras.Model):
         self.encoder = tf.keras.Sequential(name="encoder")
         encoder_arch = params['architecture'][:-1]
 
+        reg_type = params.get('regularization', None)
+
+        if reg_type == 'l1':
+            regularizer = tf.keras.regularizers.l1(params.get('l1_regularization', 0.001))
+        elif reg_type == 'l2':
+            regularizer = tf.keras.regularizers.l2(params.get('l2_regularization', 0.001))
+        elif reg_type == 'l1_l2':
+            regularizer = tf.keras.regularizers.l1_l2(
+                l1=params.get('l1_regularization', 0.001),
+                l2=params.get('l2_regularization', 0.001)
+            )
+        else:
+            regularizer = None  # No regularization
+        self.logger.info(f"Using regularization: {reg_type} ({regularizer})")
+
+
         self.encoder.add(tf.keras.layers.Input(shape=(input_dim,)))  # Flatten the input dimension
-        if params['regularization'] == 'l1':
-            regularizer = tf.keras.regularizers.l1(params['l1_regularization'])
-        elif params['regularization'] == 'l2':
-            regularizer = tf.keras.regularizers.l2(params['l2_regularization'])
             
         for i, units in enumerate(encoder_arch):
             self.encoder.add(tf.keras.layers.Dense(units, 
