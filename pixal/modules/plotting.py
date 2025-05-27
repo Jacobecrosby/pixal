@@ -6,6 +6,7 @@ import itertools
 import cv2
 import os
 import logging 
+import math
 
 logger = logging.getLogger("pixal")
 
@@ -60,7 +61,7 @@ def plot_mse_heatmap(X_test, predictions, output_dir="mse_plots"):
     return mse
 
 
-def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analysis_plots", threshold=0.01):
+def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analysis_plots", threshold=0.01, use_log_threshold=False):
     """
     Computes per-pixel MSE and overlays an anomaly heatmap on the original images.
 
@@ -86,42 +87,54 @@ def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analy
         avg_reconstructed_img = np.mean(reconstructed_img, axis=-1)  # Shape becomes (height, width)
 
         # Compute per-pixel squared error
-        error_map = np.square(avg_original_img - avg_reconstructed_img)
+        error_map = np.mean(np.square(original_img - reconstructed_img), axis=-1)
 
-        # Normalize the error map to [0, 1] for heatmap scaling
+
+        # Apply log transformation if requested
+        if use_log_threshold:
+            error_map = np.log10(error_map + 1e-8)  # shift to avoid log(0)
+            threshold_label = f"log10({threshold})"
+            threshold_value = np.log10(threshold)
+        else:
+            threshold_label = f"{threshold}"
+            threshold_value = threshold
+
+        # Normalize the error map for heatmap visualization
         norm_error_map = (error_map - np.min(error_map)) / (np.max(error_map) - np.min(error_map) + 1e-8)
 
-        # Create mask for high-error regions (above threshold)
-        anomaly_mask = (norm_error_map >= threshold).astype(np.uint8)
+        # Create anomaly mask
+        anomaly_mask = (error_map >= threshold_value).astype(np.uint8)
+        num_pixels = anomaly_mask.size
+        num_anomalous = np.sum(anomaly_mask)
+        percent = (num_anomalous / num_pixels) * 100
 
-        # Convert original grayscale to BGR for overlaying
-        original_bgr = cv2.cvtColor((avg_original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR) # SHOULD I USE THE AVG IMAGE?
+        logging.info(f"[Image {i}] Anomalous Pixels: {num_anomalous:,}  Percentage: {percent:.2f}%")
 
-        # Create color heatmap
+        # Prepare image for overlay
+        original_bgr = cv2.cvtColor((avg_original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
         heatmap_raw = (norm_error_map * 255).astype(np.uint8)
         heatmap_color = cv2.applyColorMap(heatmap_raw, cv2.COLORMAP_JET)
 
-        # Create final overlay with transparency
         overlay = cv2.addWeighted(original_bgr, 0.6, heatmap_color, 0.4, 0)
+        overlay[anomaly_mask == 1] = [255, 0, 0]
 
-        # Optional: draw red where anomaly mask is triggered
-        overlay[anomaly_mask == 1] = [255, 0, 0]  # Red for high-error
-
-        # Save and plot
+        # Plot
         fig, axes = plt.subplots(1, 2, figsize=(15, 4))
         axes[0].imshow(original_img, cmap="gray")
         axes[0].set_title("Original")
         axes[1].imshow(overlay)
-        axes[1].set_title(f"Heatmap (Threshold: {threshold})")
+        axes[1].set_title(f"Heatmap (Threshold: {threshold_label})")
 
         for ax in axes:
             ax.axis("off")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f"anomaly_overlay_{i}.png"))
+        output_path = os.path.join(output_dir, f"anomaly_overlay_{i}.png")
+        plt.savefig(output_path)
         plt.close()
 
-        logger.info(f"Saved: anomaly_overlay_{i}.png")
+        logging.info(f"[✓] Heatmap Saved: {output_path}")
+
 
 def analyze_mse_distribution(X_test, predictions, image_shape, output_dir="analysis_plots"):
     """
@@ -298,9 +311,9 @@ def plot_pixel_predictions(x_true, predictions, title="Pixel-wise Prediction Acc
     x_flat = x_true.flatten()
     y_flat = predictions.flatten()
 
-    print("x_true range:", x_flat.min(), x_flat.max())
-    print("predictions range:", y_flat.min(), y_flat.max())
-    
+    logging.info(f"x_true range: {x_flat.min()} → {x_flat.max()}")
+    logging.info(f"predictions range: {y_flat.min():.4f} to {y_flat.max():.4f}")
+
     plt.figure(figsize=(6, 6))
     plt.scatter(x_true.flatten(), predictions.flatten(), alpha=0.3, s=1)
     plt.plot([0, 1], [0, 1], 'r--')  # Diagonal line
@@ -326,7 +339,7 @@ def plot_prediction_distribution(predictions, output_dir="analysis_plots"):
 
     plt.hist(predictions.flatten(), bins=100,log=True,label="Predictions")
     plt.title("Distribution of Model Predictions")
-    plt.savefig(os.path.join(output_dir, "prediction_distribution.png"))
+    plt.savefig(os.path.join(output_dir, "prediction_distribution_log.png"))
     plt.close()
 
 def plot_truth_distribution(x_test, output_dir="analysis_plots"):
@@ -346,7 +359,7 @@ def plot_truth_distribution(x_test, output_dir="analysis_plots"):
 
     plt.hist(x_test.flatten(), bins=100,log=True,label="Truth")
     plt.title("Distribution of Model Predictions")
-    plt.savefig(os.path.join(output_dir, "truth_distribution.png"))
+    plt.savefig(os.path.join(output_dir, "truth_distribution_log.png"))
     plt.close()
 
 def plot_combined_distribution(x_test, predictions, output_dir="analysis_plots"):
@@ -370,7 +383,7 @@ def plot_combined_distribution(x_test, predictions, output_dir="analysis_plots")
     plt.legend() 
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "combined_distribution.png"))
+    plt.savefig(os.path.join(output_dir, "combined_distribution_log.png"))
     plt.close()
 
 def plot_confusion_matrix(x_true, x_pred, output_dir="analysis_plots"):
@@ -415,39 +428,120 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def plot_pixel_loss_and_log_loss(x_true, x_pred, output_dir="analysis_plots"):
+def plot_pixel_loss_and_log_loss(x_true, x_pred, output_dir="analysis_plots", loss_threshold=0.01):
     """
-    Plot histograms of per-pixel reconstruction losses in both linear and log scales.
+    Plot histograms of per-pixel reconstruction losses in both linear and log scales,
+    with red threshold lines at loss_threshold and log10(loss_threshold).
 
     Parameters:
         x_true (np.ndarray): Ground truth image data (flattened or reshaped)
         x_pred (np.ndarray): Predicted image data (same shape as x_true)
         output_dir (str): Directory to save plots
-        title_prefix (str): Optional prefix for plot titles
+        loss_threshold (float): Threshold value for highlighting cutoff
     """
     os.makedirs(output_dir, exist_ok=True)
 
     # Compute per-pixel MSE
     pixel_losses = np.square(x_true - x_pred).flatten()
 
-    # Standard loss histogram
+    # Plot: Standard loss histogram
     plt.figure(figsize=(8, 5))
     plt.hist(pixel_losses, bins=100, alpha=0.7, color='steelblue')
+    plt.axvline(loss_threshold, color='red', linestyle='--', linewidth=2, label=f"Threshold = {loss_threshold:.4f}")
     plt.xlabel("Pixel-wise Loss (MSE)")
     plt.ylabel("Frequency")
     plt.title("Per-Pixel Loss Distribution")
+    plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "pixel_loss_histogram.png"))
     plt.close()
 
-    # Log-scaled histogram (Y-axis)
+    # Plot: Log-scaled histogram (Y-axis)
+    log_threshold = np.log10(loss_threshold) if loss_threshold > 0 else 0
     plt.figure(figsize=(8, 5))
     plt.hist(pixel_losses, bins=100, alpha=0.7, color='darkorange', log=True)
+    plt.axvline(loss_threshold, color='red', linestyle='--', linewidth=2, label=f"Threshold = {loss_threshold:.4f}")
     plt.xlabel("Pixel-wise Loss (MSE)")
-    plt.ylabel("Log(Frequency)")
+    plt.ylabel("Frequency (log scale)")
     plt.title("Log-Scale Per-Pixel Loss Distribution")
+    plt.legend()
     plt.grid(True, which='both', linestyle='--')
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "pixel_loss_log_histogram.png"))
     plt.close()
+
+
+def plot_channelwise_pixel_loss(x_true, x_pred, config, output_dir="analysis_plots", loss_threshold=0.01):
+    """
+    Plot per-channel histograms of per-pixel MSE losses on a single figure with subplots.
+
+    Input shape should be (N, H*W*C) with C=3 assumed.
+    The function reshapes to (N, H*W, C), then plots loss histograms per channel.
+
+    Parameters:
+        x_true (np.ndarray): Ground truth of shape (N, P*C), where P = H*W
+        x_pred (np.ndarray): Predicted data of same shape
+        config (object): Configuration object with config.preprocessor.channels
+        output_dir (str): Directory to save plots
+        loss_threshold (float): Threshold line to show in histograms
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Extract channels from config or default to RGB
+    channels = getattr(getattr(config, 'preprocessor', {}), 'channels', ['R', 'G', 'B'])
+    channel_map = {'H': "Hue", 'S': "Saturation", 'V': "Value",
+                   'R': "Red", 'G': "Green", 'B': "Blue"}
+    color_defaults = {'R': 'red', 'G': 'green', 'B': 'blue',
+                      'H': 'purple', 'S': 'orange', 'V': 'brown'}
+
+    # Check input shape
+    if x_true.ndim != 2 or x_pred.ndim != 2 or x_true.shape != x_pred.shape:
+        raise ValueError(f"[✗] Expected shape (N, H*W*C). Got {x_true.shape} and {x_pred.shape}")
+
+    num_samples, total_values = x_true.shape
+    num_channels = len(channels)
+    if total_values % num_channels != 0:
+        raise ValueError(f"[✗] Total values {total_values} not divisible by channel count {num_channels}")
+
+    num_pixels = total_values // num_channels
+
+    # Reshape to (N, P, C)
+    x_true = x_true.reshape((num_samples, num_pixels, num_channels))
+    x_pred = x_pred.reshape((num_samples, num_pixels, num_channels))
+
+    # Combine all samples: (N, P, C) → (N*P, C)
+    x_true = x_true.reshape(-1, num_channels)
+    x_pred = x_pred.reshape(-1, num_channels)
+
+    # Plotting setup
+    n_cols = min(num_channels, 3)
+    n_rows = math.ceil(num_channels / n_cols)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+    axes = np.array(axes).reshape(-1)
+
+    for c_idx, ch in enumerate(channels):
+        losses = np.square(x_true[:, c_idx] - x_pred[:, c_idx])
+        channel_name = channel_map.get(ch, ch)
+        color = color_defaults.get(ch, 'gray')
+
+        ax = axes[c_idx]
+        ax.hist(losses, bins=100, alpha=0.7, color=color,log=True)
+        ax.axvline(loss_threshold, color='black', linestyle='--', linewidth=2,
+                   label=f"Threshold = {loss_threshold:.4f}")
+        ax.set_xlabel(f"{channel_name} Loss (MSE)")
+        ax.set_ylabel("Frequency (log scale)")
+        ax.set_title(f"{channel_name} Channel")
+        ax.legend()
+        ax.grid(True)
+
+    for idx in range(num_channels, len(axes)):
+        axes[idx].axis("off")
+
+    plt.tight_layout()
+    out_path = os.path.join(output_dir, "combined_channel_loss_histogram.png")
+    plt.savefig(out_path)
+    plt.close()
+
+    logging.info("[✓] Combined channel-wise histogram saved to %s", out_path)
+

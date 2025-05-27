@@ -67,7 +67,7 @@ n_epochs: 500
 batchsize: 4
 
 learning_rate: 1e-5
-regularization: 'l1' # 'l2' or 'l1' 
+regularization: 'l2' # 'l2' or 'l1' 
 l1_regularization: 0.0001 # Encourages zero weights. Helps feature selection. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
 l2_regularization: 0.0001 # Discourages zero weights. General stability. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
 loss_function: "masked_mse" # "mse", 'mae'
@@ -75,7 +75,7 @@ metric_accuracy: "SparseCategoricalAccuracy" #CategoricalAccuracy <--- May need 
 output_activation: "sigmoid" # sigmoid, softmax, tanh, relu, linear
 
 ### ----> STOP LOSS <---- ###
-patience: 10
+patience: 20
 min_delta: 0.001
 
 #
@@ -95,4 +95,5 @@ plotting:
   plot_pixel_predictions: True
   plot_distributions: True
 
-
+use_log_loss: False  # Use log loss for plotting
+loss_cut: 0.7  # Cut off for loss plotting

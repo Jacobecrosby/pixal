@@ -61,7 +61,7 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
     
     if config.plotting.plot_anomaly_heatmap:
         # Run MSE heatmap overlay
-        pltm.plot_mse_heatmap_overlay(X_test, predictions, image_shape, metric_dir / "validation",threshold=0.7)
+        pltm.plot_mse_heatmap_overlay(X_test, predictions, image_shape, metric_dir / "validation",threshold=config.loss_cut, use_log_threshold=config.use_log_loss)
     
     if config.plotting.plot_roc_recall_curve:
         # Run pixel-wise predictions
@@ -77,7 +77,8 @@ def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
 
     if config.plotting.plot_loss:
         # Run loss analysis
-        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir / "validation")
+        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir / "validation", loss_threshold=config.loss_cut)
+        pltm.plot_channelwise_pixel_loss(X_test, predictions, config, metric_dir / "validation", loss_threshold=config.loss_cut)
 
 def run(npz_dir, model_dir, metric_dir, config=None, quiet=False):
     # Load test dataset

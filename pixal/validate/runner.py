@@ -66,7 +66,7 @@ def run_detection(config=None, quiet=False):
     log_path = resolve_path(path_config.validate_log_path)
     log_path.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename=log_path / "validation.log",
+        filename=log_path / "detect.log",
         filemode="w",
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
