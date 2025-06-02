@@ -15,6 +15,31 @@ def resolve_path(obj):
     parts.insert(0, obj)  # Add root base string
     return Path(*parts)
 
+def resolve_parent_inserted_path(path_or_obj, folder_name, insert_depth=1):
+    """
+    Insert `folder_name` N levels above the leaf of the resolved path.
+
+    Args:
+        path_or_obj: Either a string path or a ConfigNamespace with `.path`
+        folder_name: The folder name to insert
+        insert_depth: How many parent levels up to insert (default: 1)
+
+    Returns:
+        Path object with folder_name inserted at desired location
+    """
+    if hasattr(path_or_obj, "path"):
+        path_str = path_or_obj.path
+    else:
+        path_str = path_or_obj
+
+    full_path = Path(resolve_path(path_str))
+    parent = full_path
+    for _ in range(insert_depth):
+        parent = parent.parent
+
+    relative_tail = full_path.relative_to(parent)
+    return parent / folder_name / relative_tail
+
 class ConfigNamespace(SimpleNamespace):
     def __getitem__(self, key):
         return getattr(self, key)

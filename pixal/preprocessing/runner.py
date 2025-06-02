@@ -1,108 +1,250 @@
 import logging
 from pathlib import Path
 from pixal.preprocessing import remove_background, align_images, imagePreprocessor
-from pixal.modules.config_loader import load_config, resolve_path
+from pixal.modules.config_loader import load_config, resolve_path, resolve_parent_inserted_path
 
-def run_preprocessing(input_dir, config=None,quiet=False):
+def run_preprocessing(input_dir, config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
-    
-    metric_dir = resolve_path(path_config.aligned_metrics_path)
-    metric_dir.mkdir(parents=True, exist_ok=True)
-    
-    bg_removed_dir = resolve_path(path_config.remove_background_path)
-    bg_removed_dir.mkdir(parents=True, exist_ok=True)
-    
-    aligned_dir = resolve_path(path_config.aligned_images_path)
-    aligned_dir.mkdir(parents=True, exist_ok=True)
-    
-    npz_dir = resolve_path(path_config.component_model_path)
+    input_path = Path(input_dir)
 
-    reference_dir = None
-    
-    # Set up logging
-    log_path = resolve_path(path_config.log_path)
-    log_path.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        filename=log_path / "preprocessing.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    logger = logging.getLogger("pixal")
+    if config.one_hot_encoding:
+        # 📦 Standard one-hot preprocessing — all folders together
+        metric_dir = resolve_path(path_config.aligned_metrics_path)
+        metric_dir.mkdir(parents=True, exist_ok=True)
 
-    if not quiet:
-        logger.info(f"📁 Logging all preprocessing steps to {log_path}")
+        bg_removed_dir = resolve_path(path_config.remove_background_path)
+        bg_removed_dir.mkdir(parents=True, exist_ok=True)
 
-    remove_background.run(input_dir, bg_removed_dir, config=config, quiet=quiet)
-    align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet)
-    imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet)
+        aligned_dir = resolve_path(path_config.aligned_images_path)
+        aligned_dir.mkdir(parents=True, exist_ok=True)
 
-def run_remove_background(input_dir, config=None,quiet=False):
+        npz_dir = resolve_path(path_config.component_model_path)
+        log_path = resolve_path(path_config.log_path)
+        log_path.mkdir(parents=True, exist_ok=True)
+
+        # Logging setup
+        logging.basicConfig(
+            filename=log_path / "preprocessing.log",
+            filemode="w",
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        logger = logging.getLogger("pixal")
+        if not quiet:
+            logger.info(f"📁 Logging all preprocessing steps to {log_path}")
+
+        reference_dir = None
+        remove_background.run(input_dir, bg_removed_dir, config=config, quiet=quiet)
+        align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet)
+        imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet)
+
+    else:
+        # 🔁 Independent preprocessing per folder
+        for subfolder in input_path.iterdir():
+            if not subfolder.is_dir():
+                continue
+
+            folder_name = subfolder.name
+            output_root = resolve_path(path_config.component_model_path) / folder_name
+            output_root.mkdir(parents=True, exist_ok=True)
+
+            metric_dir = resolve_parent_inserted_path(path_config.aligned_metrics_path, folder_name,2)
+            print(metric_dir)
+       
+            bg_removed_dir = resolve_parent_inserted_path(path_config.remove_background_path, folder_name, 2)
+            print(bg_removed_dir)
+            aligned_dir = resolve_parent_inserted_path(path_config.aligned_images_path, folder_name, 2)
+            print(aligned_dir)
+            npz_dir = resolve_parent_inserted_path(path_config.component_model_path, folder_name, 0)
+            #npz_dir = resolve_path(path_config.component_model_path)
+            print(npz_dir)
+            log_path = resolve_parent_inserted_path(path_config.log_path, folder_name, 1)
+            print(log_path)
+
+            for d in [metric_dir, bg_removed_dir, aligned_dir, npz_dir, log_path]:
+                d.mkdir(parents=True, exist_ok=True)
+
+            # Reconfigure logger for each folder
+            log_file = log_path / "preprocessing.log"
+            logger = logging.getLogger("pixal")
+
+            # Remove existing handlers
+            if logger.hasHandlers():
+                logger.handlers.clear()
+
+            # Add new file handler
+            file_handler = logging.FileHandler(log_file, mode="w")
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
+
+            if not quiet:
+                logger.info(f"📁 Logging preprocessing for {folder_name} to {log_path}")
+
+            reference_dir = None
+            remove_background.run(subfolder, bg_removed_dir, config=config, quiet=quiet)
+            align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet)
+            imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet)
+
+
+def run_remove_background(input_dir, config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
-    output_dir = resolve_path(path_config.remove_background_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    input_path = Path(input_dir)
 
-    # Set up logging
-    log_path = resolve_path(path_config.log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True) #bad line?
-    logging.basicConfig(
-        filename=log_path / "preprocessing.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    logger = logging.getLogger("pixal")
+    if config.one_hot_encoding:
+        output_dir = resolve_path(path_config.remove_background_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        log_path = resolve_path(path_config.log_path)
+        log_path.mkdir(parents=True, exist_ok=True)
 
-    if not quiet:
-        logger.info(f"📁 Logging background removal to {log_path}")
+        logging.basicConfig(
+            filename=log_path / "preprocessing.log",
+            filemode="w",
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        logger = logging.getLogger("pixal")
+        if not quiet:
+            logger.info(f"📁 Logging background removal to {log_path}")
 
-    
-    remove_background.run(input_dir, output_dir, config=config, quiet=quiet)
+        remove_background.run(input_dir, output_dir, config=config, quiet=quiet)
 
-def run_align_images(input_dir, config=None,quiet=False):
+    else:
+        for subfolder in input_path.iterdir():
+            if not subfolder.is_dir():
+                continue
+            folder_name = subfolder.name
+            output_root = resolve_path(path_config.component_model_path) / folder_name
+            output_root.mkdir(parents=True, exist_ok=True)
+
+            bg_removed_dir = resolve_parent_inserted_path(path_config.remove_background_path, folder_name, 2)
+            log_path = resolve_parent_inserted_path(path_config.log_path, folder_name, 1)
+
+            bg_removed_dir.mkdir(parents=True, exist_ok=True)
+            log_path.mkdir(parents=True, exist_ok=True)
+            
+            # Reconfigure logger for each folder
+            log_file = log_path / "preprocessing.log"
+            logger = logging.getLogger("pixal")
+
+            # Remove existing handlers
+            if logger.hasHandlers():
+                logger.handlers.clear()
+
+            # Add new file handler
+            file_handler = logging.FileHandler(log_file, mode="w")
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
+
+            if not quiet:
+                logger.info(f"📁 Logging preprocessing for {folder_name} to {log_path}")
+
+            remove_background.run(subfolder, bg_removed_dir, config=config, quiet=quiet)
+
+def run_align_images(input_dir, config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
-    
-    output_dir = resolve_path(path_config.aligned_images_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    metric_dir = resolve_path(path_config.aligned_metrics_path)
-    metric_dir.mkdir(parents=True, exist_ok=True)
+    input_path = Path(input_dir)
 
-    # Set up logging
-    log_path = resolve_path(path_config.log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        filename=log_path / "preprocessing.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    logger = logging.getLogger("pixal")
+    if config.one_hot_encoding:
+        output_dir = resolve_path(path_config.aligned_images_path)
+        metric_dir = resolve_path(path_config.aligned_metrics_path)
+        log_path = resolve_path(path_config.log_path)
 
-    if not quiet:
-        logger.info(f"📁 Logging image alignment steps to {log_path}")
-    
-    align_images.run(input_dir, output_dir, metric_dir, config=config, quiet=quiet)
+        for d in [output_dir, metric_dir, log_path]:
+            d.mkdir(parents=True, exist_ok=True)
 
-def run_imagePreprocessor(config=None,quiet=False):
+        logging.basicConfig(
+            filename=log_path / "alignment.log",
+            filemode="w",
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        logger = logging.getLogger("pixal")
+        if not quiet:
+            logger.info(f"📁 Logging image alignment steps to {log_path}")
+
+        align_images.run(input_dir, output_dir, metric_dir, config=config, quiet=quiet)
+
+    else:
+        for subfolder in input_path.iterdir():
+            if not subfolder.is_dir():
+                continue
+            folder_name = subfolder.name
+            output_root = resolve_path(path_config.component_model_path) / folder_name
+            aligned_dir = resolve_parent_inserted_path(path_config.aligned_images_path, folder_name, 2)
+            metric_dir = resolve_parent_inserted_path(path_config.aligned_metrics_path, folder_name,2)
+            log_path = resolve_parent_inserted_path(path_config.log_path, folder_name, 1)
+
+            for d in [aligned_dir, metric_dir, log_path]:
+                d.mkdir(parents=True, exist_ok=True)
+
+            # Reconfigure logger for each folder
+            log_file = log_path / "alignment.log"
+            logger = logging.getLogger("pixal")
+
+            # Remove existing handlers
+            if logger.hasHandlers():
+                logger.handlers.clear()
+
+            # Add new file handler
+            file_handler = logging.FileHandler(log_file, mode="w")
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
+
+            if not quiet:
+                logger.info(f"📁 Logging preprocessing for {folder_name} to {log_path}")
+
+            align_images.run(subfolder, output_dir, metric_dir, config=config, quiet=quiet)
+
+
+def run_imagePreprocessor(config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
-    input_dir = resolve_path(path_config.aligned_images_path)
+    input_path = resolve_path(path_config.aligned_images_path)
 
-    output_dir = resolve_path(path_config.component_model_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if config.one_hot_encoding:
+        output_dir = resolve_path(path_config.component_model_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set up logging
-    log_path = resolve_path(path_config.log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        filename=log_path / "preprocessing.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    logger = logging.getLogger("pixal")
+        log_path = resolve_path(path_config.log_path)
+        log_path.mkdir(parents=True, exist_ok=True)
 
-    if not quiet:
-        logger.info(f"📁 Logging all imagePreprocessor steps to {log_path}")
-    
-    imagePreprocessor.run(input_dir, output_dir, config, quiet=quiet)
+        logging.basicConfig(
+            filename=log_path / "preprocessing.log",
+            filemode="w",
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        )
+        logger = logging.getLogger("pixal")
+        if not quiet:
+            logger.info(f"📁 Logging all imagePreprocessor steps to {log_path}")
+
+        imagePreprocessor.run(input_path, output_dir, config=config, quiet=quiet)
+
+    else:
+        for folder in input_path.iterdir():
+            if not folder.is_dir():
+                continue
+            folder_name = folder.name
+            output_root = resolve_path(path_config.component_model_path) / folder_name
+            output_dir = output_root / "component_model"
+            log_path = output_root / "logs"
+
+            for d in [output_dir, log_path]:
+                d.mkdir(parents=True, exist_ok=True)
+
+            logging.basicConfig(
+                filename=log_path / "preprocessing.log",
+                filemode="w",
+                level=logging.INFO,
+                format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+            )
+            logger = logging.getLogger("pixal")
+            if not quiet:
+                logger.info(f"📁 Logging preprocessing for {folder_name} to {log_path}")
+
+            imagePreprocessor.run(folder, output_dir, config=config, quiet=quiet)

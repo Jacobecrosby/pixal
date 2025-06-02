@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger("pixal")
 
-def process_image(img_file, output_path, target_size=None, rename_images=False, index=None):
+def process_image(img_file, output_path, target_size=None, rename_images=False, index=None, one_hot_encoding=False):
     try:
         with Image.open(img_file) as img:
             img = img.convert("RGBA")
@@ -31,10 +31,13 @@ def process_image(img_file, output_path, target_size=None, rename_images=False, 
                 new_name = f"{parent_name}_{index:03}_no_bg.png"
             else:
                 new_name = f"{img_file.stem}_no_bg.png"
-                
-            output_path = output_path / img_file.parent.name
-            output_path.mkdir(parents=True, exist_ok=True)
-            output_file = output_path / new_name
+
+            if one_hot_encoding:    
+                output_path = output_path / img_file.parent.name
+                output_path.mkdir(parents=True, exist_ok=True)
+                output_file = output_path / new_name
+            else:
+                output_file = output_path / new_name
             logger.info(f"Saving image with background removed as: {output_file}")
             output.save(output_file)
 
@@ -43,7 +46,7 @@ def process_image(img_file, output_path, target_size=None, rename_images=False, 
     except Exception as e:
         return f"Error: {img_file.name} ({e})", target_size
 
-def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, rename_images=False):
+def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, rename_images=False,one_hot_encoding=False):
     input_path = Path(input_folder)
     output_path = Path(output_folder)
 
@@ -67,7 +70,7 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, 
         target_size = None
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(process_image, f, output_path, target_size, rename_images, idx): f
+                executor.submit(process_image, f, output_path, target_size, rename_images, idx, one_hot_encoding): f
                 for idx, f in enumerate(image_files)
             }
 
@@ -83,5 +86,6 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, 
 def run(input_folder, output_folder, config=None, quiet=False,rename_images=False):
     max_workers = config.remove_background.max_workers if config and hasattr(config, 'remove_background') else 4
     rename_images = config.rename_images if config and hasattr(config, 'rename_images') else False
-    remove_backgrounds(input_folder, output_folder, max_workers,quiet=quiet,rename_images=rename_images)
+    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, 'one_hot_encoding') else False
+    remove_backgrounds(input_folder, output_folder, max_workers,quiet=quiet,rename_images=rename_images,one_hot_encoding=one_hot_encoding)
 

@@ -21,7 +21,7 @@ bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 
 
 
-def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.55, npts=10, ransac_thresh=7.0, save_metrics=False, quiet=False, detect=False,MIN_SCORE_THRESHOLD=0.5, MAX_MSE_THRESHOLD=10.0, MIN_GOOD_MATCHES=20):
+def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.55, npts=10, ransac_thresh=7.0, save_metrics=False, draw_matches=False, save_overlays=False, quiet=False, detect=False,MIN_SCORE_THRESHOLD=0.5, MAX_MSE_THRESHOLD=10.0, MIN_GOOD_MATCHES=20):
     save_dir.mkdir(parents=True, exist_ok=True)
     
     if detect:
@@ -67,11 +67,29 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
             prev_gray = cv2.cvtColor(ref_image, cv2.COLOR_BGR2GRAY)
             prev_kp, prev_des = sift.detectAndCompute(prev_gray, None)
 
-            result = mod.get_src_pts(bf, sift, knn_ratio, curr_image, prev_des, prev_kp, npts, logger)
+            result = mod.get_src_pts(bf, sift, knn_ratio, curr_image, prev_des, prev_kp, npts, logger, return_matches=True)
+            #match_result = mod.get_matching_src_pts(bf, sift, knn_ratio, curr_image, prev_des, prev_kp, npts, logger, return_matches=True)
+
             if result is None:
                 continue
+            
+            src_npts, dst_npts, matches, curr_kp = result
 
-            src_npts, dst_npts = result
+            if draw_matches:
+                limited_matches = sorted(matches, key=lambda m: m.distance)[:10]  # take the best 10 matches
+
+                match_img = cv2.drawMatches(
+                    curr_image, curr_kp,
+                    ref_image, prev_kp,
+                    limited_matches, None,
+                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
+                )
+                match_img_path = metric_dir / Path(save_dir.name) / "matches"
+                match_img_path.mkdir(parents=True, exist_ok=True)
+                match_file_name = f"match_{i}_{j}.png"
+                cv2.imwrite(str(match_img_path / match_file_name), match_img)
+                logger.info(f"🔍 Saved keypoint match diagnostic: {match_img_path}")
+
             homography_matrix, mask = cv2.findHomography(src_npts, dst_npts, cv2.RANSAC, ransac_thresh)
             if homography_matrix is not None:
                         inliers = np.sum(mask)
@@ -130,12 +148,13 @@ def align_images(image_paths, save_dir, reference_dir, metric_dir, knn_ratio=0.5
         else:
             mod.stack_intensity_heatmap(save_dir,metric_dir)
         
-        metric_dir = metric_dir / "overlay_diagnostics"
-        metric_dir.mkdir(parents=True, exist_ok=True)
-        reference_images = None
-        if reference_dir:
-            reference_images = reference_dir[results[0]["index"]]
-        mod.save_overlay_diagnostics(save_dir,metric_dir,reference_images,logger)
+        if save_overlays:
+            metric_dir = metric_dir / "overlay_diagnostics"
+            metric_dir.mkdir(parents=True, exist_ok=True)
+            reference_images = None
+            if reference_dir:
+                reference_images = reference_dir[results[0]["index"]]
+            mod.save_overlay_diagnostics(save_dir,metric_dir,reference_images,logger)
 
 def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=None, quiet=False, detect=False):
     input_path = Path(input_dir)
@@ -161,6 +180,9 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
     MIN_SCORE_THRESHOLD = config.alignment.MIN_SCORE_THRESHOLD if config and hasattr(config, 'alignment') else 0.5
     MAX_MSE_THRESHOLD = config.alignment.MAX_MSE_THRESHOLD if config and hasattr(config, 'alignment') else 10.0
     MIN_GOOD_MATCHES = config.alignment.MIN_GOOD_MATCHES if config and hasattr(config, 'alignment') else 20
+    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, 'one_hot_encoding') else False
+    draw_matches = config.draw_matches if config and hasattr(config, 'draw_matches') else False
+    save_overlays = config.save_overlays if config and hasattr(config, 'save_overlays') else False
     
     # Aligns images for preprocessing
     if not reference_dir:
@@ -170,9 +192,11 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
                 if not quiet:
                     logger.warning(f"No images found in {folder}")
                 continue
-
-            sub_output = output_path / folder.name
-            align_images(image_files, sub_output, reference_dir, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet, detect,MIN_SCORE_THRESHOLD, MAX_MSE_THRESHOLD, MIN_GOOD_MATCHES)
+            if one_hot_encoding:
+                sub_output = output_path / folder.name
+            else:
+                sub_output = output_path
+            align_images(image_files, sub_output, reference_dir, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, draw_matches, save_overlays, quiet, detect, MIN_SCORE_THRESHOLD, MAX_MSE_THRESHOLD, MIN_GOOD_MATCHES)
             if not quiet:
                 logger.info(f"📁 Completed alignment for folder: {folder.name}")
     
@@ -187,8 +211,10 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
                 if not quiet:
                     logger.warning(f"No images found in {folder}")
                 continue
-           
-            sub_output = output_path / folder1.name
-            align_images(image_files, sub_output, reference_files, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, quiet, detect, MIN_SCORE_THRESHOLD, MAX_MSE_THRESHOLD, MIN_GOOD_MATCHES)
+            if one_hot_encoding:
+                sub_output = output_path / folder1.name
+            else:
+                sub_output = output_path
+            align_images(image_files, sub_output, reference_files, metric_dir, knn_ratio, npts, ransac_thresh, save_metrics, draw_matches, save_overlays, quiet, detect, MIN_SCORE_THRESHOLD, MAX_MSE_THRESHOLD, MIN_GOOD_MATCHES)
             if not quiet:
                 logger.info(f"📁 Completed alignment for folder: {folder1.name}")

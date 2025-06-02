@@ -28,6 +28,8 @@ alignment:
   MIN_GOOD_MATCHES: 20
 
 save_metrics: True                                # Save alignment metrics
+save_overlays: True                              # Save overlays of aligned images
+draw_matches: True                             # Draw matches between images and save them to disk
 
 # Settings for preprocessing images to .npz format for ML input
 preprocessor:
@@ -36,6 +38,7 @@ preprocessor:
   channels: ["H","S","V"]                        # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]) ["R", "G", "B","H","S","V"]
 
 rename_images: True                              # Rename images to folder name (R0_Triplet_Data_Flex_F1_F_Pink_bg/image.png -> R0_Triplet_Data_Flex_F1_F_Pink_bg/R0_Triplet_Data_Flex_F1_F_Pink_bg.png)
+
 
 ########### ----> Memory Handling, Inputs and Hyperparameters<----####
 
@@ -56,6 +59,7 @@ seed: 101
 
 #### ----> Architecture <---- ####
 
+one_hot_encoding: False # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
 autoencoder_architecture: [1200,800,400,200] # Last index is latent layer. Gets mirrored in code
 label_latent_size: 200 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 

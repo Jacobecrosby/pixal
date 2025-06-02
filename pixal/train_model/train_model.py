@@ -132,6 +132,7 @@ def run(input_file, config, quiet):
 
     params = {
         'architecture': config.autoencoder_architecture,
+        'one-hot_encoding': config.one_hot_encoding,
         'learning_rate': float(config.learning_rate),
         'input_dim': input_dim,
         'encoder_names': [f'encoder_layer{i+1}' for i in range(len(config.autoencoder_architecture) - 1)],
