@@ -57,9 +57,13 @@ else
     source "$VENV_DIR/bin/activate"
 fi
 
-# Upgrade pip
+# Upgrade pip properly
 echo "⬆️  Upgrading pip"
-pip install --upgrade pip
+if $IS_WINDOWS; then
+    "$VENV_DIR/Scripts/python.exe" -m pip install --upgrade pip
+else
+    pip install --upgrade pip
+fi
 
 # Install PIXAL in editable mode with correct extras
 if $IS_MAC; then
