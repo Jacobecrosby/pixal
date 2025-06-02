@@ -25,9 +25,12 @@ dependencies = [
   "numba",
   "matplotlib",
   "tqdm",
-  "onnxruntime-gpu",
   "pyyaml",
 ]
+
+[project.optional-dependencies]
+gpu = ["onnxruntime-gpu"]
+mac = ["onnxruntime"]
 
 [project.scripts]
 pixal = "pixal.cli:main"
