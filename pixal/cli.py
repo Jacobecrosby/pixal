@@ -39,7 +39,7 @@ def main():
         make_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 
         # Train
-        train_cmd = subparsers.add_parser("train", help="Train an autoencoder model")
+        train_cmd = subparsers.add_parser("train", help="Train autoencoder model(s)")
         train_cmd.add_argument("--input", "-i", required=False, help="Input data")
         train_cmd.add_argument("--quiet", "-q", help="Quiet output", action="store_true")
 

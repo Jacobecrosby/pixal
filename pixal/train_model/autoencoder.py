@@ -34,7 +34,9 @@ class Autoencoder(tf.keras.Model):
        
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO)
-        
+
+        self.one_hot_encoding = params.get('one_hot_encoding', False)
+
         input_dim = params['input_dim']
         latent_dim = params['architecture'][-1]
 
@@ -81,7 +83,14 @@ class Autoencoder(tf.keras.Model):
         # Build decoder layers
         decoder_arch = encoder_arch[::-1]
         self.decoder = tf.keras.Sequential(name="decoder")
-        self.decoder.add(Input(shape=(latent_dim+params['label_latent_size'],)))  # Explicit input for decoder. Adds label latent size to account for concatenated latent space and transformed labels
+        if self.one_hot_encoding:
+            decoder_input_dim = latent_dim + params['label_latent_size']
+        else:
+            decoder_input_dim = latent_dim
+
+        self.decoder.add(Input(shape=(decoder_input_dim,)))
+        
+        # Explicit input for decoder. Adds label latent size to account for concatenated latent space and transformed labels
 
         for i, units in enumerate(decoder_arch):
             self.decoder.add(tf.keras.layers.Dense(units, 
@@ -97,26 +106,26 @@ class Autoencoder(tf.keras.Model):
     def call(self, inputs):
         self.logger.debug("Starting forward pass...")
         
-        x, labels = inputs  # Unpack input tuple (image, labels)
+        if self.one_hot_encoding:
+            x, labels = inputs
+        else:
+            x = inputs
         
-        # Concatenate labels into the encoder input
-        #x = tf.concat([x, labels], axis=1)
-
-        # 🔹 Encode Image
+        # 🔹 Encode
         encoded = self.encoder(x)
         latent = self.latent_layer(encoded)
 
-        # 🔹 Transform Labels (Trainable Projection)
-        transformed_labels = self.label_projection(labels)
-
-        # 🔹 Concatenate transformed labels with latent space
-        latent_combined = tf.concat([latent, transformed_labels], axis=1)
-
         # 🔹 Decode
+        if self.one_hot_encoding:
+            transformed_labels = self.label_projection(labels)
+            latent_combined = tf.concat([latent, transformed_labels], axis=1)
+        else:
+            latent_combined = latent
+
         decoded = self.decoder(latent_combined)
-        
         self.logger.debug("Forward pass complete.")
         return self.output_layer(decoded)
+        
 
     def get_config(self):
         config = super().get_config()
@@ -167,18 +176,26 @@ class Autoencoder(tf.keras.Model):
                     if step % 10 == 0:
                         self.logger.info(f"Epoch {epoch + 1}, Step {step}, Loss: {loss.numpy():.4f}")
         else:
+            if self.one_hot_encoding:
+                inputs_train = [x_train, y_train]
+                inputs_val = [x_val, y_val]
+                val_targets = x_val
+            else:
+                inputs_train = x_train
+                inputs_val = x_val
+                val_targets = x_val
             # Train the model with default fit method
             self.logger.info("Training the model with standard fit method...")
             #Args: training data, target data, batch_size, epochs, verbose, callbacks, validation_data=[x_val, x_target], val_batch_size
             # Train the model using (x_train, y_train) as input
             history = self.fit(
-                [x_train, y_train],  # Input: (image data + labels)
+                inputs_train,  # Input: (image data + labels)
                 x_train,  # Target is the same as input (autoencoder behavior)
                 batch_size=params['batchsize'],
                 epochs=params['epochs'],
                 verbose=1,
                 callbacks=[early_stopping, checkpoint],
-                validation_data=([x_val, y_val], x_val),
+                validation_data=(inputs_val, val_targets),
                 validation_batch_size=params['batchsize']
         ) 
         # Save loss values to a file
@@ -213,13 +230,17 @@ class Autoencoder(tf.keras.Model):
         
         self.logger.info(f"Loss plot saved to {loss_plot_path}")
 
-    def evaluate_model(self, test_data, test_labels):
-        # Evaluate the model on test data
-        return self.evaluate([test_data, test_labels], test_data)
+    def evaluate_model(self, test_data, test_labels=None):
+        if self.one_hot_encoding:
+            return self.evaluate([test_data, test_labels], test_data)
+        else:
+            return self.evaluate(test_data, test_data)
 
-    def predict_model(self, new_data):
-        # Generate predictions
-        return self.predict(new_data)
+    def predict_model(self, new_data,labels=None):
+        if self.one_hot_encoding:
+            return self.predict([new_data, labels])
+        else:
+            return self.predict(new_data)
     
     def save_model(self, save_path):
         """Save the model to the specified path."""
@@ -231,6 +252,3 @@ class Autoencoder(tf.keras.Model):
     def load_model(cls, load_path):
         """Load a saved model from the specified path."""
         return tf.keras.models.load_model(load_path, custom_objects={'Autoencoder': cls})
-
-
-### Need to add masked_mse_loss 
