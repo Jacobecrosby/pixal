@@ -32,7 +32,7 @@ class Autoencoder(tf.keras.Model):
 
         self.params = params
        
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger("pixal")
         logging.basicConfig(level=logging.INFO)
 
         self.one_hot_encoding = params.get('one_hot_encoding', False)

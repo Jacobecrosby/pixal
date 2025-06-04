@@ -67,10 +67,10 @@ label_latent_size: 200 # Size of the latent layer for the label. This gets added
 use_gradient_tape: False # Gradient tape is used for full control of training cycle. Such as custom loss functions, custom optimization, etc. (reinforcement learning, adversarial learning)
 
 ### ----> NN Hyperparameters <---- ###
-n_epochs: 500
+n_epochs: 1
 batchsize: 4
 
-learning_rate: 1e-5
+learning_rate: 1e-4
 regularization: 'l2' # 'l2' or 'l1' 
 l1_regularization: 0.0001 # Encourages zero weights. Helps feature selection. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
 l2_regularization: 0.0001 # Discourages zero weights. General stability. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.

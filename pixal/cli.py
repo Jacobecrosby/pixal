@@ -12,7 +12,7 @@ from pixal.preprocessing import imagePreprocessor
 
 
 def main():
-    train_model = None  # placeholder to supress TensorFlow output
+    run_training = None  # placeholder to supress TensorFlow output
     detect = None       # placeholder to supress Tensorflow output
     try:
         parser = argparse.ArgumentParser(prog="pixal", description="Pixel-based Anomaly Detection CLI")
@@ -65,9 +65,9 @@ def main():
         elif args.command == "make_input":
             preprocessing_runner.run_imagePreprocessor(config=cfg, quiet=args.quiet)  
         elif args.command == "train":
-            if train_model is None:
-                from pixal.train_model import train_model
-            train_model.run(args.input,config=cfg, quiet=args.quiet)
+            if run_training is None:
+                from pixal.train_model import run_training
+            run_training.run(args.input,config=cfg, quiet=args.quiet)
         elif args.command == "validate":
             if detect is None:
                 from pixal.validate import runner as validation_runner
