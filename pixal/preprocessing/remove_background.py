@@ -49,7 +49,7 @@ def process_image(img_file, output_path, target_size=None, rename_images=False, 
 def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, rename_images=False,one_hot_encoding=False):
     input_path = Path(input_folder)
     output_path = Path(output_folder)
-
+    
     if not input_path.exists():
         logger.error(f"Input folder does not exist: {input_path}")
         return
@@ -57,15 +57,22 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, 
     output_path.mkdir(parents=True, exist_ok=True)
     supported_extensions = ('.jpg', '.jpeg', '.png', '.webp')
 
-    subdirs = [p for p in input_path.iterdir() if p.is_dir()]
-    if not subdirs:
-        subdirs = [input_path]
+    if one_hot_encoding:
+        subdirs = [p for p in input_path.iterdir() if p.is_dir()]
+    else:
+        subdirs = [input_path]  # single-type mode
 
     for folder in subdirs:
         image_files = [f for f in folder.iterdir() if f.suffix.lower() in supported_extensions]
         if not image_files:
             logger.warning(f"No images found in {folder}")
             continue
+        
+        if one_hot_encoding:    
+            output_folder_this = output_path / folder.name
+        else:
+            output_folder_this = output_path
+        output_folder_this.mkdir(parents=True, exist_ok=True)
 
         target_size = None
         with ThreadPoolExecutor(max_workers=max_workers) as executor:

@@ -12,16 +12,16 @@ def run(input_file, config, quiet):
             input_file = resolve_path(path_config.component_model_path)
            
         input_folder = Path(input_file)
-        npz_files = glob(str(input_folder / "*/*.npz"))
+        npz_file = str(input_folder / config.preprocessor.file_name)
 
-        for npz_path in npz_files:
-            print(f"Launching subprocess for {npz_path}")
-            subprocess.run([
+        
+        print(f"Launching subprocess for {npz_file}")
+        subprocess.run([
                 sys.executable,  # Python executable
                 "pixal/train_model/train_one_hot.py",  # Relative path to the subprocess script
-                "--input", str(npz_path),
+                "--input", str(npz_file),
                 "--config", "configs/parameters.yaml"
-            ])
+        ])
     
     else:
         if not input_file:

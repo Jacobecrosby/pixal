@@ -209,7 +209,7 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
 
             if not image_files:
                 if not quiet:
-                    logger.warning(f"No images found in {folder}")
+                    logger.warning(f"No images found in {folder1}")
                 continue
             if one_hot_encoding:
                 sub_output = output_path / folder1.name

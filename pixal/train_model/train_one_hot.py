@@ -114,7 +114,7 @@ figs_path.mkdir(parents=True, exist_ok=True)
 
 params = {
     'architecture': config.autoencoder_architecture,
-    'one-hot_encoding': config.one_hot_encoding,
+    'one_hot_encoding': config.one_hot_encoding,
     'learning_rate': float(config.learning_rate),
     'input_dim': X.shape[1],
     'encoder_names': [f'encoder_layer{i+1}' for i in range(len(config.autoencoder_architecture) - 1)],

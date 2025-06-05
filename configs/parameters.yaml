@@ -59,7 +59,7 @@ seed: 101
 
 #### ----> Architecture <---- ####
 
-one_hot_encoding: False # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
+one_hot_encoding: True # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
 autoencoder_architecture: [1200,800,400,200] # Last index is latent layer. Gets mirrored in code
 label_latent_size: 200 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 
