@@ -123,8 +123,8 @@ def mse(imageA, imageB):
     assert imageA.shape == imageB.shape, "Images must have the same dimensions."
     return np.mean((imageA - imageB) ** 2)
 
-
-def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts,logger=None):
+'''
+def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts,logger=None,return_matches=False):
     # Convert to grayscale
         curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
         
@@ -132,7 +132,7 @@ def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts,logger=Non
         curr_kp, curr_des = sift.detectAndCompute(curr_gray, None)
         
         # Apply KNN matching between the previous image and the current image
-        matches = bf.knnMatch(prev_des, curr_des, k=2) #knnMatch
+        matches = bf.knnMatch(curr_des, prev_des, k=2) #knnMatch
 
         good_matches = []
         for m, n in matches:
@@ -158,9 +158,39 @@ def get_src_pts(bf, sift, knn_ratio,curr_image,prev_des,prev_kp, npts,logger=Non
             
             src_npts = np.array(src_pts) #npts
             dst_npts = np.array(dst_pts) #npts
-            return src_npts, dst_npts
+            return src_npts, dst_npts, good_matches, curr_kp
+'''
+    
+def get_src_pts(bf, sift, knn_ratio, curr_image, prev_des, prev_kp, npts, logger=None, return_matches=False):
+    curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
+    curr_kp, curr_des = sift.detectAndCompute(curr_gray, None)
 
+    # FIXED: Swap curr_des and prev_des
+    matches = bf.knnMatch(curr_des, prev_des, k=2)
 
+    good_matches = [m for m, n in matches if m.distance < knn_ratio * n.distance]
+
+    if len(good_matches) > npts:
+        src_pts = np.float32([curr_kp[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([prev_kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+        return src_pts, dst_pts, good_matches, curr_kp
+
+def get_matching_src_pts(bf, sift, knn_ratio, curr_image, prev_des, prev_kp, npts, logger=None, return_matches=False):
+    curr_gray = cv2.cvtColor(curr_image, cv2.COLOR_BGR2GRAY)
+    curr_kp, curr_des = sift.detectAndCompute(curr_gray, None)
+
+    # FIXED: Swap curr_des and prev_des
+    matches = bf.knnMatch(curr_des, prev_des, k=2)
+
+    good_matches = [m for m, n in matches if m.distance < knn_ratio * n.distance]
+
+    if len(good_matches) > npts:
+        src_pts = np.float32([curr_kp[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([prev_kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+
+        return src_pts, dst_pts, good_matches, curr_kp
+    
 def alignment_score(image1,image2):
     # This takes a set of pixels from both images and compares their values. 
     # The ideal scenario has all pixel values matching each other

@@ -5,17 +5,17 @@ validate_out_path: &validate_out_path "./validate"
 
 # ************** Path for component outputs **************
 component_model_path: &component_model_path 
-  component: "R0_Triplet_Data_Flex_F1_pink"
+  component: "R0_Triplet_Data_Flex_F1_pink_one-hot_test"
   base: *out_path
 
 component_validate_path: &component_validate_path
-  component: "R0_Triplet_Data_Flex_F1_l2_test"
+  component: "R0_Triplet_Data_Flex_F1_one-hot_test"
   base: *validate_out_path
 
 # ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 
 
 model_path: &model_path
-  model: "models"
+  model: "model"
   base: *component_model_path
 
 log_path: &log_path
@@ -69,3 +69,23 @@ validate_aligned_metrics_path: &validate_aligned_metrics_path
 metadata_path: &metadata_path
   metadata: "metadata"
   base: *component_model_path
+
+general_figures_path: &general_figures_path
+  general_figures: "figures"
+  base: ""
+
+general_preprocess_path: &general_preprocess_path
+  general_preprocess: "preprocessed_images"
+  base: ""
+
+general_remove_background_path: &general_remove_background_path
+  general_remove_background: "background_removed"
+  base: *general_preprocess_path
+
+general_aligned_images_path: &general_aligned_images_path
+  general_aligned_images: "aligned_images"
+  base: *general_preprocess_path
+
+general_aligned_metrics_path: &general_aligned_metrics_path
+  general_aligned_metrics: "aligned_metrics"
+  base: *general_figures_path
