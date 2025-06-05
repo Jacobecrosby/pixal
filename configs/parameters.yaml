@@ -28,14 +28,17 @@ alignment:
   MIN_GOOD_MATCHES: 20
 
 save_metrics: True                                # Save alignment metrics
+save_overlays: True                              # Save overlays of aligned images
+draw_matches: True                             # Draw matches between images and save them to disk
 
 # Settings for preprocessing images to .npz format for ML input
 preprocessor:
   file_name: "out.npz"
-  pool_size: 4                                   # Pooling size for image pixels (e.g. 2x2 pooling) 
+  pool_size: 4                                   # Pooling size for image pixels (e.g. 2x2 pooling) post normalization? 
   channels: ["H","S","V"]                        # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]) ["R", "G", "B","H","S","V"]
 
 rename_images: True                              # Rename images to folder name (R0_Triplet_Data_Flex_F1_F_Pink_bg/image.png -> R0_Triplet_Data_Flex_F1_F_Pink_bg/R0_Triplet_Data_Flex_F1_F_Pink_bg.png)
+
 
 ########### ----> Memory Handling, Inputs and Hyperparameters<----####
 
@@ -56,6 +59,7 @@ seed: 101
 
 #### ----> Architecture <---- ####
 
+one_hot_encoding: True # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
 autoencoder_architecture: [1200,800,400,200] # Last index is latent layer. Gets mirrored in code
 label_latent_size: 200 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 
@@ -63,10 +67,10 @@ label_latent_size: 200 # Size of the latent layer for the label. This gets added
 use_gradient_tape: False # Gradient tape is used for full control of training cycle. Such as custom loss functions, custom optimization, etc. (reinforcement learning, adversarial learning)
 
 ### ----> NN Hyperparameters <---- ###
-n_epochs: 500
+n_epochs: 1
 batchsize: 4
 
-learning_rate: 1e-5
+learning_rate: 1e-4
 regularization: 'l2' # 'l2' or 'l1' 
 l1_regularization: 0.0001 # Encourages zero weights. Helps feature selection. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
 l2_regularization: 0.0001 # Discourages zero weights. General stability. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.

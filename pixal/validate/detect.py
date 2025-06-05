@@ -5,89 +5,84 @@ import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 absl.logging.set_stderrthreshold('error')
 
-import pixal.modules.plotting as pltm
-import pixal.train_model.autoencoder as autoencoder
 import numpy as np
 import logging
 from pathlib import Path
+import pixal.modules.plotting as pltm
+import pixal.train_model.autoencoder as autoencoder
+from pixal.modules.config_loader import load_config, resolve_path, configure_pixal_logger
 
 stderr_backup = sys.stderr
 sys.stderr = open(os.devnull, 'w')
 import tensorflow as tf
-
 sys.stderr.close()
 sys.stderr = stderr_backup
 
-import matplotlib.pyplot as plt
-import cv2
+path_config = load_config("configs/paths.yaml")
 
-logger = logging.getLogger("pixal")
+log_path = resolve_path(path_config.validate_log_path)
+log_path.mkdir(parents=True, exist_ok=True)
 
-def run_detection(dataset, model_dir, metric_dir, config=None, quiet=False):
-    # Load dataset with X_test and y_test
+log_file = log_path / "detect.log"
+
+logger = configure_pixal_logger(log_file)
+
+def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None):
     X_test = dataset["data"]
-    y_test = dataset["labels"]
+    y_test = dataset.get("labels") if one_hot_encoding else None
     image_shape = dataset["shape"]
 
-    # Flatten
     X_test = X_test.reshape(X_test.shape[0], -1)
-    y_test = y_test.reshape(y_test.shape[0], -1)
+
+    if one_hot_encoding and y_test is not None:
+        y_test = y_test.reshape(y_test.shape[0], -1)
    
-    # Load trained model
-    model = (model_dir / f"{config.model_name}.{config.model_file_extension}")
-    model = autoencoder.Autoencoder.load_model(model)
-    #model = tf.keras.models.load_model(model)
-    
-    predictions = model.predict([X_test, y_test])
-    
-    if config.plotting.plot_distributions:
-        # plot prediction distribution
-        pltm.plot_prediction_distribution(predictions, metric_dir / "validation")
-    
-    if config.plotting.plot_distributions:
-        # plot truth distribution
-        pltm.plot_truth_distribution(X_test, metric_dir / "validation")
+    model = autoencoder.Autoencoder.load_model(model_path)
+    inputs = [X_test, y_test] if one_hot_encoding else X_test
+    predictions = model.predict(inputs)
+
+    metric_dir = Path(metric_dir)
+    metric_dir.mkdir(parents=True, exist_ok=True)
 
     if config.plotting.plot_distributions:
-        pltm.plot_combined_distribution(X_test, predictions, metric_dir / "validation")
+        pltm.plot_prediction_distribution(predictions, metric_dir)
+        pltm.plot_truth_distribution(X_test, metric_dir)
+        pltm.plot_combined_distribution(X_test, predictions, metric_dir)
 
-    # Run MSE analysis
-    #pltm.analyze_mse_distribution(X_test, predictions, image_shape, metric_dir / "validation")
-    # Run MSE heatmap visualization
-    #pltm.plot_mse_heatmap(model, X_test, y_test)
-    
-    #check validation loss image
-    #pltm.analyze_pixel_validation_loss(X_test, predictions, image_shape, metric_dir / "validation")
-    
     if config.plotting.plot_anomaly_heatmap:
-        # Run MSE heatmap overlay
-        pltm.plot_mse_heatmap_overlay(X_test, predictions, image_shape, metric_dir / "validation",threshold=config.loss_cut, use_log_threshold=config.use_log_loss)
-    
+        pltm.plot_mse_heatmap_overlay(
+            X_test, predictions, image_shape, metric_dir,
+            threshold=config.loss_cut, use_log_threshold=config.use_log_loss
+        )
+
     if config.plotting.plot_roc_recall_curve:
-        # Run pixel-wise predictions
-        pltm.plot_anomaly_detection_curves(X_test, predictions, '', metric_dir / "validation")
-    
+        pltm.plot_anomaly_detection_curves(X_test, predictions, '', metric_dir)
+
     if config.plotting.plot_pixel_predictions:
-        # Run pixel-wise predictions
-        pltm.plot_pixel_predictions(X_test, predictions, "Pixel-wise Prediction Accuracy",metric_dir / "validation")
-   
+        pltm.plot_pixel_predictions(X_test, predictions, "Pixel-wise Prediction Accuracy", metric_dir)
+
     if config.plotting.plot_confusion_matrix:
-        # Run confusion matrix
-        pltm.plot_confusion_matrix(X_test, predictions, metric_dir / "validation")
+        pltm.plot_confusion_matrix(X_test, predictions, metric_dir)
 
     if config.plotting.plot_loss:
-        # Run loss analysis
-        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir / "validation", loss_threshold=config.loss_cut)
-        pltm.plot_channelwise_pixel_loss(X_test, predictions, config, metric_dir / "validation", loss_threshold=config.loss_cut)
+        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir, loss_threshold=config.loss_cut)
+        pltm.plot_channelwise_pixel_loss(X_test, predictions, config, metric_dir, loss_threshold=config.loss_cut)
 
-def run(npz_dir, model_dir, metric_dir, config=None, quiet=False):
-    # Load test dataset
-    file_name = config.preprocessor.file_name if config and hasattr(config.preprocessor, 'file_name') else "out.npz"
-    #model_name = config.model.name if config and hasattr(config.model, 'name') else "testModel.keras"
-    npz_dir = Path(npz_dir)
 
-    npz = npz_dir / file_name
-    dataset = np.load(npz)  
+def run(npz_file, model_file, metric_dir, config=None, one_hot_encoding=False, quiet=False):
+    npz_file = Path(npz_file) / config.preprocessor.file_name
+    model_file = Path(model_file) / str(config.model_name + "." + config.model_file_extension)
+    metric_dir = Path(metric_dir)
 
-    run_detection(dataset, model_dir, metric_dir, config=config, quiet=quiet)
-    
+    if not npz_file.exists():
+        logger.error(f"❌ .npz file not found: {npz_file}")
+        return
+
+    if not model_file.exists():
+        logger.error(f"❌ Model file not found: {model_file}")
+        return
+
+    logger.info(f"🧪 Running detection on: {npz_file.name}")
+    dataset = np.load(npz_file)
+    run_detection(dataset, model_file, metric_dir, one_hot_encoding, config=config)
+    logger.info(f"✅ Detection complete for: {npz_file.name}")

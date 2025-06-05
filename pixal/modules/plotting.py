@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from pixal.modules.config_loader import load_config, resolve_path, configure_pixal_logger
 from sklearn.metrics import roc_curve, precision_recall_curve, auc, confusion_matrix, ConfusionMatrixDisplay
 import itertools
 import cv2
@@ -8,7 +9,14 @@ import os
 import logging 
 import math
 
-logger = logging.getLogger("pixal")
+path_config = load_config("configs/paths.yaml")
+
+log_path = resolve_path(path_config.validate_log_path)
+log_path.mkdir(parents=True, exist_ok=True)
+
+log_file = log_path / "detect.log"
+
+logger = configure_pixal_logger(log_file)
 
 def plot_mse_heatmap(X_test, predictions, output_dir="mse_plots"):
     """
@@ -108,7 +116,7 @@ def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analy
         num_anomalous = np.sum(anomaly_mask)
         percent = (num_anomalous / num_pixels) * 100
 
-        logging.info(f"[Image {i}] Anomalous Pixels: {num_anomalous:,}  Percentage: {percent:.2f}%")
+        logger.info(f"[Image {i}] Anomalous Pixels: {num_anomalous:,}  Percentage: {percent:.2f}%")
 
         # Prepare image for overlay
         original_bgr = cv2.cvtColor((avg_original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
@@ -133,7 +141,7 @@ def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analy
         plt.savefig(output_path)
         plt.close()
 
-        logging.info(f"[✓] Heatmap Saved: {output_path}")
+        logger.info(f"[✓] Heatmap Saved: {output_path}")
 
 
 def analyze_mse_distribution(X_test, predictions, image_shape, output_dir="analysis_plots"):
@@ -311,8 +319,8 @@ def plot_pixel_predictions(x_true, predictions, title="Pixel-wise Prediction Acc
     x_flat = x_true.flatten()
     y_flat = predictions.flatten()
 
-    logging.info(f"x_true range: {x_flat.min()} → {x_flat.max()}")
-    logging.info(f"predictions range: {y_flat.min():.4f} to {y_flat.max():.4f}")
+    logger.info(f"x_true range: {x_flat.min()} → {x_flat.max()}")
+    logger.info(f"predictions range: {y_flat.min():.4f} to {y_flat.max():.4f}")
 
     plt.figure(figsize=(6, 6))
     plt.scatter(x_true.flatten(), predictions.flatten(), alpha=0.3, s=1)
@@ -543,5 +551,5 @@ def plot_channelwise_pixel_loss(x_true, x_pred, config, output_dir="analysis_plo
     plt.savefig(out_path)
     plt.close()
 
-    logging.info("[✓] Combined channel-wise histogram saved to %s", out_path)
+    logger.info("[✓] Combined channel-wise histogram saved to %s", out_path)
 

@@ -16,13 +16,14 @@ import logging
 logger = logging.getLogger("pixal")
 
 class ImageDataProcessor:
-    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False):
+    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False, one_hot_encoding=False):
         self.image_folders = image_folders
         self.pool_size = pool_size
         self.image_shape = None 
         self.channels = channels
         self.quiet = quiet
         self.file_name = file_name
+        self.one_hot_encoding = one_hot_encoding  
 
     def find_divisible_size(self, h, w):
         new_h = h - (h % self.pool_size)
@@ -122,8 +123,14 @@ class ImageDataProcessor:
         if not self.quiet:
             logger.info(f"Labels shape before one-hot encoding: {labels.shape}")
 
-        num_classes = len(self.image_folders)
-        labels = np.eye(num_classes)[labels]
+        if self.one_hot_encoding:
+            num_classes = len(self.image_folders)
+            labels = np.eye(num_classes)[labels]
+            if not self.quiet:
+                logger.info(f"Final one-hot labels shape: {labels.shape}")
+        else:
+            if not self.quiet:
+                logger.info(f"Final raw label vector shape: {labels.shape}")
 
         if not self.quiet:
             logger.info(f"Final data shape: {data.shape}")
@@ -137,25 +144,56 @@ class ImageDataProcessor:
             output_file = output_dir / self.file_name
             if not self.quiet:
                 logger.info(f"Image shape after pooling: {self.image_shape}")
-            np.savez(output_file, 
-                     data=data, 
-                     labels=labels,
-                     shape=self.image_shape)
-            if not self.quiet:
-                logger.info(f"Data and labels saved to {output_file}")
+            if self.one_hot_encoding:
+                if not self.quiet:
+                    logger.info(f"Data and labels saved to {output_file}")
+                np.savez(output_file, data=data, labels=labels, shape=self.image_shape)
+            else:
+                if not self.quiet:
+                        logger.info(f"Data saved to {output_file}")
+                np.savez(output_file, data=data, shape=self.image_shape)
+           
 
 def run(input_dir, output_dir=None, config=None, quiet=False):
     input_path = Path(input_dir)
     if not input_path.exists():
         raise FileNotFoundError(f"Input path not found: {input_path}")
 
-    image_folders = [f for f in input_path.iterdir() if f.is_dir()]
-    if not quiet:
-        logger.info(f"🔍 Processing images from {len(image_folders)} folders...")
-
     pool_size = config.preprocessor.pool_size if config and hasattr(config.preprocessor, 'pool_size') else 4
     channels = config.preprocessor.channels if config and hasattr(config.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
     file_name = config.preprocessor.file_name if config and hasattr(config.preprocessor, 'file_name') else "out.npz"
-  
-    processor = ImageDataProcessor(image_folders, pool_size=pool_size, channels=channels, file_name=file_name, quiet=quiet)
-    processor.save_data(output_dir)
+    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, "one_hot_encoding") else False
+
+    if one_hot_encoding:
+        # ✅ Multiple folders to process and label
+        image_folders = [f for f in input_path.iterdir() if f.is_dir()]
+        if not image_folders:
+            raise ValueError(f"[✗] No subfolders found in {input_path} for one-hot encoding mode.")
+        
+        if not quiet:
+            logger.info(f"🔍 Processing images from {len(image_folders)} folders for one-hot encoding...")
+        
+        processor = ImageDataProcessor(
+            image_folders,
+            pool_size=pool_size,
+            channels=channels,
+            file_name=file_name,
+            quiet=quiet,
+            one_hot_encoding=True
+        )
+        processor.save_data(output_dir)
+    
+    else:
+        # ✅ Directly process this single folder of images
+        if not quiet:
+            logger.info(f"🔍 Processing images from folder: {input_path.name}")
+
+        processor = ImageDataProcessor(
+            [input_path],
+            pool_size=pool_size,
+            channels=channels,
+            file_name=file_name,
+            quiet=quiet,
+            one_hot_encoding=False
+        )
+        processor.save_data(output_dir)
