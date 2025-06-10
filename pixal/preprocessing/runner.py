@@ -49,17 +49,10 @@ def run_preprocessing(input_dir, config=None, quiet=False):
             output_root.mkdir(parents=True, exist_ok=True)
 
             metric_dir = resolve_parent_inserted_path(path_config.aligned_metrics_path, folder_name,2)
-            print(metric_dir)
-       
             bg_removed_dir = resolve_parent_inserted_path(path_config.remove_background_path, folder_name, 2)
-            print(bg_removed_dir)
             aligned_dir = resolve_parent_inserted_path(path_config.aligned_images_path, folder_name, 2)
-            print(aligned_dir)
             npz_dir = resolve_parent_inserted_path(path_config.component_model_path, folder_name, 0)
-            #npz_dir = resolve_path(path_config.component_model_path)
-            print(npz_dir)
             log_path = resolve_parent_inserted_path(path_config.log_path, folder_name, 1)
-            print(log_path)
 
             for d in [metric_dir, bg_removed_dir, aligned_dir, npz_dir, log_path]:
                 d.mkdir(parents=True, exist_ok=True)

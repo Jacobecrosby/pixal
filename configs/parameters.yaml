@@ -35,8 +35,10 @@ draw_matches: True                             # Draw matches between images and
 preprocessor:
   file_name: "out.npz"
   pool_size: 4                                   # Pooling size for image pixels (e.g. 2x2 pooling) post normalization? 
-  channels: ["H","S","V"]                        # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]) ["R", "G", "B","H","S","V"]
-
+  channels: ["R","G","B","H","S","V"]                # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]) ["R", "G", "B","H","S","V"]
+  zero_pruning: True                       # Prunes zero pixels from the image. If True, only non-zero pixels are saved to the .npz file. This is useful for sparse data.
+  zero_pruning_padding: 5                        # Prune pixels that are within this distance from the edge of the image. This is useful for images with a lot of padding.
+  bg_threshold: 15                                 # Threshold for background removal. Pixels with a value below this threshold are considered background and removed.
 rename_images: True                              # Rename images to folder name (R0_Triplet_Data_Flex_F1_F_Pink_bg/image.png -> R0_Triplet_Data_Flex_F1_F_Pink_bg/R0_Triplet_Data_Flex_F1_F_Pink_bg.png)
 
 
@@ -58,8 +60,7 @@ model_file_extension: "keras" # h5, or keras # need to add SavedModel format
 seed: 101
 
 #### ----> Architecture <---- ####
-
-one_hot_encoding: True # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
+one_hot_encoding: False # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
 autoencoder_architecture: [1200,800,400,200] # Last index is latent layer. Gets mirrored in code
 label_latent_size: 200 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 
@@ -67,7 +68,7 @@ label_latent_size: 200 # Size of the latent layer for the label. This gets added
 use_gradient_tape: False # Gradient tape is used for full control of training cycle. Such as custom loss functions, custom optimization, etc. (reinforcement learning, adversarial learning)
 
 ### ----> NN Hyperparameters <---- ###
-n_epochs: 1
+n_epochs: 500
 batchsize: 4
 
 learning_rate: 1e-4

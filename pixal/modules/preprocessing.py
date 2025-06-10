@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 from tqdm import tqdm
+from glob import glob
 
 import difflib
 
@@ -422,3 +423,38 @@ def stack_intensity_heatmap(image_dir, save_path, reference_path=None, normalize
     plt.savefig(save_file, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"✅ Heatmap saved to {save_file}")
+
+
+
+def save_crop_preview(image_folders, crop_box, output_dir, preview_name="crop_preview.png", image_index=0):
+    """
+    Pick one image from the first folder, apply the crop_box, and write out a PNG.
+
+    Args:
+      image_folders (List[Path or str]): list of folders used by ImageDataProcessor
+      crop_box (dict): {'y_min','y_max','x_min','x_max','padding'}
+      output_dir (Path or str): where to write the preview
+      preview_name (str): filename (PNG) under output_dir
+      image_index (int): which image in the folder to sample (0 = first)
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # find folder and image
+    folder = Path(image_folders[0])
+    all_paths = sorted(glob(str(folder / "*")))
+    if not all_paths:
+        logger.warning(f"No images found in {folder}, skipping preview.")
+        return
+
+    idx = min(image_index, len(all_paths)-1)
+    img = cv2.imread(all_paths[idx])
+    if img is None:
+        logger.warning(f"Could not read {all_paths[idx]}, skipping preview.")
+        return
+
+    cb = crop_box
+    cropped = img[cb["y_min"]:cb["y_max"], cb["x_min"]:cb["x_max"]]
+    preview_path = output_dir / 'preprocessed_images' / preview_name
+    cv2.imwrite(str(preview_path), cropped)
+    logger.info(f"🖼️  Saved crop preview to {preview_path}")

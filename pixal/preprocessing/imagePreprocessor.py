@@ -4,26 +4,75 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 absl.logging.set_stderrthreshold('error')
-
+from pixal.modules.preprocessing import save_crop_preview
 import numpy as np
 import cv2
 import argparse
 from pathlib import Path
 from glob import glob
 from tqdm import tqdm
+import yaml
 import logging
 
 logger = logging.getLogger("pixal")
 
 class ImageDataProcessor:
-    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False, one_hot_encoding=False):
+    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False, one_hot_encoding=False, zero_pruning=False, zero_pruning_padding=1, bg_threshold=2):
         self.image_folders = image_folders
         self.pool_size = pool_size
         self.image_shape = None 
         self.channels = channels
         self.quiet = quiet
         self.file_name = file_name
-        self.one_hot_encoding = one_hot_encoding  
+        self.one_hot_encoding = one_hot_encoding
+        self.zero_pruning = zero_pruning
+        self.zero_pruning_padding = zero_pruning_padding
+        self.crop_box = None
+        self.bg_threshold = bg_threshold
+
+    def compute_global_crop_box(self, folder_path, padding=1, bg_threshold=2):
+        """
+        Scan all images to determine the largest bounding box that includes all non-zero pixels.
+        """
+        image_paths = glob(os.path.join(folder_path, "*"))
+        y_min_global, x_min_global = float('inf'), float('inf')
+        y_max_global, x_max_global = 0, 0
+
+        for image_path in image_paths:
+            image = cv2.imread(image_path)
+            if image is None:
+                continue
+
+            mask = np.any(image > bg_threshold, axis=-1)
+            coords = np.argwhere(mask)
+            if coords.size == 0:
+                continue
+            #print("coords:", coords)
+            y_min, x_min = coords.min(axis=0)
+            #print('y_min, x_min:', y_min, x_min)
+
+            y_max, x_max = coords.max(axis=0)
+
+            y_min_global = min(y_min_global, y_min)
+            x_min_global = min(x_min_global, x_min)
+            y_max_global = max(y_max_global, y_max)
+            x_max_global = max(x_max_global, x_max)
+
+        # Apply padding (with bounds check)
+        y_min_global = max(y_min_global - padding, 0)
+        x_min_global = max(x_min_global - padding, 0)
+        y_max_global = y_max_global + padding
+        x_max_global = x_max_global + padding
+
+        crop_box = {
+            "y_min": int(y_min_global),
+            "y_max": int(y_max_global),
+            "x_min": int(x_min_global),
+            "x_max": int(x_max_global),
+            "padding": int(padding)
+        }
+
+        return crop_box
 
     def find_divisible_size(self, h, w):
         new_h = h - (h % self.pool_size)
@@ -39,12 +88,19 @@ class ImageDataProcessor:
                                    new_w // self.pool_size, self.pool_size).mean(axis=(1, 3))
         return pooled
 
-    def process_image(self, image_path):
+    def process_image(self, image_path, crop_box=None):
         image = cv2.imread(image_path)
         if image is None:
             if not self.quiet:
                 logger.warning(f"Error loading image: {image_path}")
             return None
+        if crop_box:
+            if crop_box:
+                image = image[
+                    crop_box["y_min"]:crop_box["y_max"],
+                    crop_box["x_min"]:crop_box["x_max"]
+                ]
+
 
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -85,8 +141,11 @@ class ImageDataProcessor:
         image_paths = glob(os.path.join(folder_path, "*"))
         all_images_data = []
 
+        if hasattr(self, 'zero_pruning') and self.zero_pruning:
+            self.crop_box = self.compute_global_crop_box(folder_path, self.zero_pruning_padding, self.bg_threshold)
+
         for image_path in tqdm(image_paths, desc=f"Processing {Path(folder_path).name}", disable=self.quiet):
-            image_data = self.process_image(image_path)
+            image_data = self.process_image(image_path, self.crop_box)
             if image_data is not None:
                 all_images_data.append(image_data)
 
@@ -152,6 +211,19 @@ class ImageDataProcessor:
                 if not self.quiet:
                         logger.info(f"Data saved to {output_file}")
                 np.savez(output_file, data=data, shape=self.image_shape)
+
+            # === Save crop metadata if zero pruning was applied ===
+            if hasattr(self, 'zero_pruning') and self.zero_pruning:
+                save_crop_preview(
+                    self.image_folders,
+                    self.crop_box,
+                    output_dir
+                )
+                metadata_file = output_dir / 'preprocessed_images' / f"{self.file_name.replace('.npz', '')}_metadata.yaml"
+                with open(metadata_file, "w") as f:
+                    yaml.dump({"crop_box": self.crop_box}, f)
+                if not self.quiet:
+                    logger.info(f"📎 Saved crop metadata to {metadata_file}")
            
 
 def run(input_dir, output_dir=None, config=None, quiet=False):
@@ -163,6 +235,9 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
     channels = config.preprocessor.channels if config and hasattr(config.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
     file_name = config.preprocessor.file_name if config and hasattr(config.preprocessor, 'file_name') else "out.npz"
     one_hot_encoding = config.one_hot_encoding if config and hasattr(config, "one_hot_encoding") else False
+    zero_pruning = config.preprocessor.zero_pruning if config and hasattr(config.preprocessor, 'zero_pruning') else False
+    zero_pruning_padding = config.preprocessor.zero_pruning_padding if config and hasattr(config.preprocessor, 'zero_pruning_padding') else False
+    bg_threshold = config.preprocessor.bg_threshold if config and hasattr(config.preprocessor, 'bg_threshold') else 2
 
     if one_hot_encoding:
         # ✅ Multiple folders to process and label
@@ -179,7 +254,10 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
             channels=channels,
             file_name=file_name,
             quiet=quiet,
-            one_hot_encoding=True
+            one_hot_encoding=True,
+            zero_pruning=zero_pruning,
+            zero_pruning_padding=zero_pruning_padding,
+            bg_threshold=bg_threshold
         )
         processor.save_data(output_dir)
     
@@ -194,6 +272,9 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
             channels=channels,
             file_name=file_name,
             quiet=quiet,
-            one_hot_encoding=False
+            one_hot_encoding=False,
+            zero_pruning=zero_pruning,
+            zero_pruning_padding=zero_pruning_padding,
+            bg_threshold=bg_threshold
         )
         processor.save_data(output_dir)

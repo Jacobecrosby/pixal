@@ -4,6 +4,13 @@ from pathlib import Path
 from glob import glob
 from pixal.modules.config_loader import load_config, resolve_path
 
+from tensorflow.keras import backend as K
+import gc
+
+K.clear_session()
+gc.collect()
+
+
 def run(input_file, config, quiet):
     path_config = load_config("configs/paths.yaml")
 
