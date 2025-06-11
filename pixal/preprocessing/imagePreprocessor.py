@@ -219,11 +219,25 @@ class ImageDataProcessor:
                     self.crop_box,
                     output_dir
                 )
-                metadata_file = output_dir / 'preprocessed_images' / f"{self.file_name.replace('.npz', '')}_metadata.yaml"
+                metadata_file = output_dir / 'metadata' / "preprocessing.yaml"
+                metadata_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+
+                # Step 1–2: Load existing data if the file exists
+                if metadata_file.exists():
+                    with open(metadata_file, "r") as f:
+                        data = yaml.safe_load(f) or {}
+                else:
+                    data = {}
+
+                # Step 3: Update with new crop_box
+                data["crop_box"] = self.crop_box
+
+                # Step 4: Write back the updated data
                 with open(metadata_file, "w") as f:
-                    yaml.dump({"crop_box": self.crop_box}, f)
+                    yaml.dump(data, f)
+
                 if not self.quiet:
-                    logger.info(f"📎 Saved crop metadata to {metadata_file}")
+                    logger.info(f"📎 Updated crop metadata in {metadata_file}")
            
 
 def run(input_dir, output_dir=None, config=None, quiet=False):
@@ -231,13 +245,13 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
     if not input_path.exists():
         raise FileNotFoundError(f"Input path not found: {input_path}")
 
-    pool_size = config.preprocessor.pool_size if config and hasattr(config.preprocessor, 'pool_size') else 4
-    channels = config.preprocessor.channels if config and hasattr(config.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
-    file_name = config.preprocessor.file_name if config and hasattr(config.preprocessor, 'file_name') else "out.npz"
-    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, "one_hot_encoding") else False
-    zero_pruning = config.preprocessor.zero_pruning if config and hasattr(config.preprocessor, 'zero_pruning') else False
-    zero_pruning_padding = config.preprocessor.zero_pruning_padding if config and hasattr(config.preprocessor, 'zero_pruning_padding') else False
-    bg_threshold = config.preprocessor.bg_threshold if config and hasattr(config.preprocessor, 'bg_threshold') else 2
+    pool_size = config.preprocessing.preprocessor.pool_size if config and hasattr(config.preprocessing.preprocessor, 'pool_size') else 4
+    channels = config.preprocessing.preprocessor.channels if config and hasattr(config.preprocessing.preprocessor, 'channels') else ("H", "S", "V", "R", "G", "B")
+    file_name = config.preprocessing.preprocessor.file_name if config and hasattr(config.preprocessing.preprocessor, 'file_name') else "out.npz"
+    one_hot_encoding = config.model_training.one_hot_encoding if config and hasattr(config.model_training, "one_hot_encoding") else False
+    zero_pruning = config.preprocessing.preprocessor.zero_pruning if config and hasattr(config.preprocessing.preprocessor, 'zero_pruning') else False
+    zero_pruning_padding = config.preprocessing.preprocessor.zero_pruning_padding if config and hasattr(config.preprocessing.preprocessor, 'zero_pruning_padding') else False
+    bg_threshold = config.preprocessing.preprocessor.bg_threshold if config and hasattr(config.preprocessing.preprocessor, 'bg_threshold') else 2
 
     if one_hot_encoding:
         # ✅ Multiple folders to process and label

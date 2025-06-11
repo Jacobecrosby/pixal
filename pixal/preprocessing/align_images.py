@@ -173,16 +173,16 @@ def run(input_dir, output_dir=None, reference_dir=None, metric_dir=None, config=
         if not reference_subdirs:
             reference_subdirs = [reference_dir]
     
-    knn_ratio = config.alignment.knn_ratio if config and hasattr(config, 'alignment') else 0.55
-    npts = config.alignment.number_of_points if config and hasattr(config, 'alignment') else 10
-    ransac_thresh = config.alignment.ransac_threshold if config and hasattr(config, 'alignment') else 7.0
-    save_metrics = config.save_metrics if config and hasattr(config, 'save_metrics') else False
-    MIN_SCORE_THRESHOLD = config.alignment.MIN_SCORE_THRESHOLD if config and hasattr(config, 'alignment') else 0.5
-    MAX_MSE_THRESHOLD = config.alignment.MAX_MSE_THRESHOLD if config and hasattr(config, 'alignment') else 10.0
-    MIN_GOOD_MATCHES = config.alignment.MIN_GOOD_MATCHES if config and hasattr(config, 'alignment') else 20
-    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, 'one_hot_encoding') else False
-    draw_matches = config.draw_matches if config and hasattr(config, 'draw_matches') else False
-    save_overlays = config.save_overlays if config and hasattr(config, 'save_overlays') else False
+    knn_ratio = config.preprocessing.alignment.knn_ratio if config and hasattr(config.preprocessing, 'alignment') else 0.55
+    npts = config.preprocessing.alignment.number_of_points if config and hasattr(config.preprocessing, 'alignment') else 10
+    ransac_thresh = config.preprocessing.alignment.ransac_threshold if config and hasattr(config.preprocessing, 'alignment') else 7.0
+    save_metrics = config.preprocessing.save_metrics if config and hasattr(config.preprocessing, 'save_metrics') else False
+    MIN_SCORE_THRESHOLD = config.preprocessing.alignment.MIN_SCORE_THRESHOLD if config and hasattr(config.preprocessing, 'alignment') else 0.5
+    MAX_MSE_THRESHOLD = config.preprocessing.alignment.MAX_MSE_THRESHOLD if config and hasattr(config.preprocessing, 'alignment') else 10.0
+    MIN_GOOD_MATCHES = config.preprocessing.alignment.MIN_GOOD_MATCHES if config and hasattr(config.preprocessing, 'alignment') else 20
+    one_hot_encoding = config.model_training.one_hot_encoding if config and hasattr(config.model_training, 'one_hot_encoding') else False
+    draw_matches = config.preprocessing.draw_matches if config and hasattr(config.preprocessing, 'draw_matches') else False
+    save_overlays = config.preprocessing.save_overlays if config and hasattr(config.preprocessing, 'save_overlays') else False
     
     # Aligns images for preprocessing
     if not reference_dir:

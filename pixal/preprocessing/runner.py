@@ -1,4 +1,5 @@
 import logging
+import yaml
 from pathlib import Path
 from pixal.preprocessing import remove_background, align_images, imagePreprocessor
 from pixal.modules.config_loader import load_config, resolve_path, resolve_parent_inserted_path
@@ -7,7 +8,13 @@ def run_preprocessing(input_dir, config=None, quiet=False):
     path_config = load_config("configs/paths.yaml")
     input_path = Path(input_dir)
 
-    if config.one_hot_encoding:
+    # Load the original YAML
+    with open("configs/parameters.yaml", "r") as infile:
+        full_config = yaml.safe_load(infile)
+     # Extract the 'preprocessing' section
+    preprocessing_section = full_config.get("preprocessing", {})
+    
+    if config.model_training.one_hot_encoding:
         # 📦 Standard one-hot preprocessing — all folders together
         metric_dir = resolve_path(path_config.aligned_metrics_path)
         metric_dir.mkdir(parents=True, exist_ok=True)
@@ -22,6 +29,13 @@ def run_preprocessing(input_dir, config=None, quiet=False):
         log_path = resolve_path(path_config.log_path)
         log_path.mkdir(parents=True, exist_ok=True)
 
+        metadata_path = resolve_path(path_config.metadata_path)
+        metadata_path.mkdir(parents=True, exist_ok=True)
+        
+        # Save to new YAML file
+        with open(metadata_path / "preprocessing.yaml", "w") as outfile:
+            yaml.dump({"preprocessing": preprocessing_section}, outfile, default_flow_style=False)
+        
         # Logging setup
         logging.basicConfig(
             filename=log_path / "preprocessing.log",
@@ -53,9 +67,14 @@ def run_preprocessing(input_dir, config=None, quiet=False):
             aligned_dir = resolve_parent_inserted_path(path_config.aligned_images_path, folder_name, 2)
             npz_dir = resolve_parent_inserted_path(path_config.component_model_path, folder_name, 0)
             log_path = resolve_parent_inserted_path(path_config.log_path, folder_name, 1)
+            metadata_path = resolve_parent_inserted_path(path_config.metadata_path, folder_name, 1)
 
-            for d in [metric_dir, bg_removed_dir, aligned_dir, npz_dir, log_path]:
+            for d in [metric_dir, bg_removed_dir, aligned_dir, npz_dir, log_path,metadata_path]:
                 d.mkdir(parents=True, exist_ok=True)
+            
+            # Save to new YAML file
+            with open(metadata_path / "preprocessing.yaml", "w") as outfile:
+                yaml.dump({"preprocessing": preprocessing_section}, outfile, default_flow_style=False)
 
             # Reconfigure logger for each folder
             log_file = log_path / "preprocessing.log"

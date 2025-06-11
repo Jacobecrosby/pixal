@@ -52,7 +52,7 @@ def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None
     if config.plotting.plot_anomaly_heatmap:
         pltm.plot_mse_heatmap_overlay(
             X_test, predictions, image_shape, metric_dir,
-            threshold=config.loss_cut, use_log_threshold=config.use_log_loss
+            threshold=config.loss_cut, use_log_threshold=config.plotting.use_log_loss
         )
 
     if config.plotting.plot_roc_recall_curve:
@@ -65,8 +65,8 @@ def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None
         pltm.plot_confusion_matrix(X_test, predictions, metric_dir)
 
     if config.plotting.plot_loss:
-        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir, loss_threshold=config.loss_cut)
-        pltm.plot_channelwise_pixel_loss(X_test, predictions, config, metric_dir, loss_threshold=config.loss_cut)
+        pltm.plot_pixel_loss_and_log_loss(X_test, predictions, metric_dir, loss_threshold=config.plotting.loss_cut)
+        pltm.plot_channelwise_pixel_loss(X_test, predictions, config, metric_dir, loss_threshold=config.plotting.loss_cut)
 
 
 def run(npz_file, model_file, metric_dir, config=None, one_hot_encoding=False, quiet=False):

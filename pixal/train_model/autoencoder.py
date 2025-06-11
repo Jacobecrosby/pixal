@@ -28,80 +28,16 @@ import json
 class Autoencoder(tf.keras.Model):
 
     def __init__(self, params, **kwargs):
-        super(Autoencoder, self).__init__(**kwargs)
-
+        super().__init__(**kwargs)
         self.params = params
-       
+        self.encoder = None
+        self.decoder = None
+        self.output_layer = None
+        self.latent_layer = None
+        self.label_projection = None
+        self.one_hot_encoding = params.get("one_hot_encoding", False)
         self.logger = logging.getLogger("pixal")
-        logging.basicConfig(level=logging.INFO)
 
-        self.one_hot_encoding = params.get('one_hot_encoding', False)
-
-        input_dim = params['input_dim']
-        latent_dim = params['architecture'][-1]
-
-        self.logger.info("Initializing Autoencoder model...")
-        self.logger.info(f"Autoencoder model architecture: {params['architecture']}")
-
-        # Concatenate image data and labels at input
-        #self.concat_input = Concatenate()([self.input_img, self.input_label])
-
-        # Build encoder layers
-        self.encoder = tf.keras.Sequential(name="encoder")
-        encoder_arch = params['architecture'][:-1]
-
-        reg_type = params.get('regularization', None)
-
-        if reg_type == 'l1':
-            regularizer = tf.keras.regularizers.l1(params.get('l1_regularization', 0.001))
-        elif reg_type == 'l2':
-            regularizer = tf.keras.regularizers.l2(params.get('l2_regularization', 0.001))
-        elif reg_type == 'l1_l2':
-            regularizer = tf.keras.regularizers.l1_l2(
-                l1=params.get('l1_regularization', 0.001),
-                l2=params.get('l2_regularization', 0.001)
-            )
-        else:
-            regularizer = None  # No regularization
-        self.logger.info(f"Using regularization: {reg_type} ({regularizer})")
-
-
-        self.encoder.add(tf.keras.layers.Input(shape=(input_dim,)))  # Flatten the input dimension
-            
-        for i, units in enumerate(encoder_arch):
-            self.encoder.add(tf.keras.layers.Dense(units, 
-                                                   activation=tf.nn.leaky_relu, # if alpha needs to be changed: activation=lambda x: tf.nn.leaky_relu(x, alpha=0.1))
-                                                   activity_regularizer=regularizer,
-                                                   name=params['encoder_names'][i]))
-
-        # Latent space
-        self.latent_layer = tf.keras.layers.Dense(latent_dim, activation=tf.nn.leaky_relu, name="latent")
-
-        # Project labels into a higher-dimensional space
-        self.label_projection = Dense(params['label_latent_size'], activation='relu', name="label_transform")
-
-        # Build decoder layers
-        decoder_arch = encoder_arch[::-1]
-        self.decoder = tf.keras.Sequential(name="decoder")
-        if self.one_hot_encoding:
-            decoder_input_dim = latent_dim + params['label_latent_size']
-        else:
-            decoder_input_dim = latent_dim
-
-        self.decoder.add(Input(shape=(decoder_input_dim,)))
-        
-        # Explicit input for decoder. Adds label latent size to account for concatenated latent space and transformed labels
-
-        for i, units in enumerate(decoder_arch):
-            self.decoder.add(tf.keras.layers.Dense(units, 
-                                                   activation=tf.nn.leaky_relu, 
-                                                   activity_regularizer=regularizer, 
-                                                   name=params['decoder_names'][i]))
-
-        # Output layer
-        #self.output_layer = tf.keras.layers.Dense(input_dim, activation=tfls.nn.leaky_relu, name="output") # May need sigmoid for activation
-        self.output_layer = tf.keras.layers.Dense(input_dim, activation=params['output_activation'], name="output") # tf.nn.leaky_relu or sigmoid
-        self.logger.info("Autoencoder model initialized successfully.")
 
     def call(self, inputs):
         self.logger.debug("Starting forward pass...")
@@ -126,6 +62,52 @@ class Autoencoder(tf.keras.Model):
         self.logger.debug("Forward pass complete.")
         return self.output_layer(decoded)
         
+
+    def build_model(self, input_dim):
+        self.logger.info(f"Building model with input_dim={input_dim}")
+        
+        self.logger.info("Initializing Autoencoder model...")
+        self.logger.info(f"Autoencoder model architecture: {self.params['architecture']}")
+
+        latent_dim = self.params['architecture'][-1]
+        reg_type = self.params.get('regularization')
+        
+        if reg_type == 'l1':
+            regularizer = tf.keras.regularizers.l1(self.params.get('l1_regularization', 0.001))
+        elif reg_type == 'l2':
+            regularizer = tf.keras.regularizers.l2(self.params.get('l2_regularization', 0.001))
+        elif reg_type == 'l1_l2':
+            regularizer = tf.keras.regularizers.l1_l2(
+                l1=self.params.get('l1_regularization', 0.001),
+                l2=self.params.get('l2_regularization', 0.001)
+            )
+        else:
+            regularizer = None
+
+        # Build encoder
+        self.encoder = tf.keras.Sequential(name="encoder")
+        self.encoder.add(Input(shape=(input_dim,)))
+        for i, units in enumerate(self.params['architecture'][:-1]):
+            self.encoder.add(Dense(units, activation=tf.nn.leaky_relu, activity_regularizer=regularizer,
+                                name=self.params['encoder_names'][i]))
+
+        self.latent_layer = Dense(latent_dim, activation=tf.nn.leaky_relu, name="latent")
+        
+        if self.one_hot_encoding:
+            self.label_projection = Dense(self.params['label_latent_size'], activation='relu', name="label_transform")
+
+        # Build decoder
+        decoder_arch = self.params['architecture'][:-1][::-1]
+        decoder_input_dim = latent_dim + self.params['label_latent_size'] if self.one_hot_encoding else latent_dim
+
+        self.decoder = tf.keras.Sequential(name="decoder")
+        self.decoder.add(Input(shape=(decoder_input_dim,)))
+        for i, units in enumerate(decoder_arch):
+            self.decoder.add(Dense(units, activation=tf.nn.leaky_relu, activity_regularizer=regularizer,
+                                name=self.params['decoder_names'][i]))
+
+        self.output_layer = Dense(input_dim, activation=self.params['output_activation'], name="output")
+
 
     def get_config(self):
         config = super().get_config()
