@@ -114,7 +114,6 @@ params = {
 
 # Train
 autoencoder = Autoencoder(params)
-autoencoder = Autoencoder(params)
 autoencoder.build_model(input_dim=X.shape[1])
 
 autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)

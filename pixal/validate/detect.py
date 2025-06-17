@@ -37,7 +37,8 @@ def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None
     if one_hot_encoding and y_test is not None:
         y_test = y_test.reshape(y_test.shape[0], -1)
    
-    model = autoencoder.Autoencoder.load_model(model_path)
+    print("model path: ", model_path)
+    model = autoencoder.Autoencoder.load_model(model_path,config)
     inputs = [X_test, y_test] if one_hot_encoding else X_test
     predictions = model.predict(inputs)
 
@@ -52,7 +53,7 @@ def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None
     if config.plotting.plot_anomaly_heatmap:
         pltm.plot_mse_heatmap_overlay(
             X_test, predictions, image_shape, metric_dir,
-            threshold=config.loss_cut, use_log_threshold=config.plotting.use_log_loss
+            threshold=config.plotting.loss_cut, use_log_threshold=config.plotting.use_log_loss
         )
 
     if config.plotting.plot_roc_recall_curve:
@@ -70,8 +71,8 @@ def run_detection(dataset, model_path, metric_dir, one_hot_encoding, config=None
 
 
 def run(npz_file, model_file, metric_dir, config=None, one_hot_encoding=False, quiet=False):
-    npz_file = Path(npz_file) / config.preprocessor.file_name
-    model_file = Path(model_file) / str(config.model_name + "." + config.model_file_extension)
+    npz_file = Path(npz_file) / config.preprocessing.preprocessor.file_name
+    model_file = Path(model_file) / str(config.model_training.model_name + "." + config.model_training.model_file_extension)
     metric_dir = Path(metric_dir)
 
     if not npz_file.exists():

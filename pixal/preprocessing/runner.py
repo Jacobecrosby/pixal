@@ -13,6 +13,7 @@ def run_preprocessing(input_dir, config=None, quiet=False):
         full_config = yaml.safe_load(infile)
      # Extract the 'preprocessing' section
     preprocessing_section = full_config.get("preprocessing", {})
+    plotting_section = full_config.get("plotting", {})
     
     if config.model_training.one_hot_encoding:
         # 📦 Standard one-hot preprocessing — all folders together
@@ -35,6 +36,8 @@ def run_preprocessing(input_dir, config=None, quiet=False):
         # Save to new YAML file
         with open(metadata_path / "preprocessing.yaml", "w") as outfile:
             yaml.dump({"preprocessing": preprocessing_section}, outfile, default_flow_style=False)
+        with open(metadata_path / "plotting.yaml", "w") as outfile:
+            yaml.dump({"plotting": plotting_section}, outfile, default_flow_style=False)
         
         # Logging setup
         logging.basicConfig(
@@ -75,7 +78,9 @@ def run_preprocessing(input_dir, config=None, quiet=False):
             # Save to new YAML file
             with open(metadata_path / "preprocessing.yaml", "w") as outfile:
                 yaml.dump({"preprocessing": preprocessing_section}, outfile, default_flow_style=False)
-
+            with open(metadata_path / "plotting.yaml", "w") as outfile:
+                yaml.dump({"plotting": plotting_section}, outfile, default_flow_style=False)
+                
             # Reconfigure logger for each folder
             log_file = log_path / "preprocessing.log"
             logger = logging.getLogger("pixal")

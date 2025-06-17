@@ -57,7 +57,7 @@ model_training:
 
   ########## ----> Model <---- ###########
   model_name: "testModel" 
-  model_file_extension: "keras" # h5, or keras # need to add SavedModel format
+  model_file_extension: "weights.h5" # h5 to save weights
   seed: 101
 
   #### ----> Architecture <---- ####

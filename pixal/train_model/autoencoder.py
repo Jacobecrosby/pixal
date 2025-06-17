@@ -226,11 +226,21 @@ class Autoencoder(tf.keras.Model):
     
     def save_model(self, save_path):
         """Save the model to the specified path."""
-        self.logger.info(f"Saving model to {save_path}...")
-        self.save(save_path)
-        self.logger.info(f"Model saved to {save_path}")
+        self.logger.info(f"Saving model weights to {save_path}...")
+        self.save_weights(save_path)
+        self.logger.info(f"Model weights saved to {save_path}")
       
     @classmethod
-    def load_model(cls, load_path):
-        """Load a saved model from the specified path."""
-        return tf.keras.models.load_model(load_path, custom_objects={'Autoencoder': cls})
+    def load_model(cls, load_path, params):
+        model = cls(params)
+        model.build_model(input_dim=params["input_dim"])
+
+        dummy_input = tf.zeros((1, params["input_dim"]))
+        if params.get("one_hot_encoding", False):
+            dummy_labels = tf.zeros((1, params["label_latent_size"]))
+            model([dummy_input, dummy_labels])
+        else:
+            model(dummy_input)
+            
+        model.load_weights(load_path)
+        return model

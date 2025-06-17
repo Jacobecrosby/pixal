@@ -17,7 +17,7 @@ import logging
 logger = logging.getLogger("pixal")
 
 class ImageDataProcessor:
-    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False, one_hot_encoding=False, zero_pruning=False, zero_pruning_padding=1, bg_threshold=2):
+    def __init__(self, image_folders, pool_size=8, channels=("H", "S", "V"), file_name="out.npz", quiet=False, one_hot_encoding=False, zero_pruning=False, zero_pruning_padding=1, bg_threshold=2, crop_box=None, validation=False):
         self.image_folders = image_folders
         self.pool_size = pool_size
         self.image_shape = None 
@@ -29,6 +29,8 @@ class ImageDataProcessor:
         self.zero_pruning_padding = zero_pruning_padding
         self.crop_box = None
         self.bg_threshold = bg_threshold
+        self.crop_box = crop_box
+        self.validation = validation
 
     def compute_global_crop_box(self, folder_path, padding=1, bg_threshold=2):
         """
@@ -47,10 +49,8 @@ class ImageDataProcessor:
             coords = np.argwhere(mask)
             if coords.size == 0:
                 continue
-            #print("coords:", coords)
+    
             y_min, x_min = coords.min(axis=0)
-            #print('y_min, x_min:', y_min, x_min)
-
             y_max, x_max = coords.max(axis=0)
 
             y_min_global = min(y_min_global, y_min)
@@ -95,11 +95,10 @@ class ImageDataProcessor:
                 logger.warning(f"Error loading image: {image_path}")
             return None
         if crop_box:
-            if crop_box:
-                image = image[
-                    crop_box["y_min"]:crop_box["y_max"],
-                    crop_box["x_min"]:crop_box["x_max"]
-                ]
+            image = image[
+                crop_box["y_min"]:crop_box["y_max"],
+                crop_box["x_min"]:crop_box["x_max"]
+            ]
 
 
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -142,7 +141,10 @@ class ImageDataProcessor:
         all_images_data = []
 
         if hasattr(self, 'zero_pruning') and self.zero_pruning:
-            self.crop_box = self.compute_global_crop_box(folder_path, self.zero_pruning_padding, self.bg_threshold)
+            if self.crop_box is None:
+                self.crop_box = self.compute_global_crop_box(folder_path, self.zero_pruning_padding, self.bg_threshold)
+            if not self.quiet:
+                logger.info(f"Using crop box: {self.crop_box} for folder: {folder_path}")
 
         for image_path in tqdm(image_paths, desc=f"Processing {Path(folder_path).name}", disable=self.quiet):
             image_data = self.process_image(image_path, self.crop_box)
@@ -212,35 +214,37 @@ class ImageDataProcessor:
                         logger.info(f"Data saved to {output_file}")
                 np.savez(output_file, data=data, shape=self.image_shape)
 
-            # === Save crop metadata if zero pruning was applied ===
-            if hasattr(self, 'zero_pruning') and self.zero_pruning:
-                save_crop_preview(
-                    self.image_folders,
-                    self.crop_box,
-                    output_dir
-                )
-                metadata_file = output_dir / 'metadata' / "preprocessing.yaml"
-                metadata_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+            if not self.validation:
+                # === Save crop metadata if zero pruning was applied ===
+                if hasattr(self, 'zero_pruning') and self.zero_pruning:
+                    save_crop_preview(
+                        self.image_folders,
+                        self.crop_box,
+                        output_dir
+                    )
+                    
+                    metadata_file = output_dir / 'metadata' / "preprocessing.yaml"
+                    metadata_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
 
-                # Step 1–2: Load existing data if the file exists
-                if metadata_file.exists():
-                    with open(metadata_file, "r") as f:
-                        data = yaml.safe_load(f) or {}
-                else:
-                    data = {}
+                    # Step 1–2: Load existing data if the file exists
+                    if metadata_file.exists():
+                        with open(metadata_file, "r") as f:
+                            data = yaml.safe_load(f) or {}
+                    else:
+                        data = {}
 
-                # Step 3: Update with new crop_box
-                data["crop_box"] = self.crop_box
+                    # Step 3: Update with new crop_box
+                    data["crop_box"] = self.crop_box
 
-                # Step 4: Write back the updated data
-                with open(metadata_file, "w") as f:
-                    yaml.dump(data, f)
+                    # Step 4: Write back the updated data
+                    with open(metadata_file, "w") as f:
+                        yaml.dump(data, f)
 
-                if not self.quiet:
-                    logger.info(f"📎 Updated crop metadata in {metadata_file}")
+                    if not self.quiet:
+                        logger.info(f"📎 Updated crop metadata in {metadata_file}")
            
 
-def run(input_dir, output_dir=None, config=None, quiet=False):
+def run(input_dir, output_dir=None, config=None, quiet=False, validation=False):
     input_path = Path(input_dir)
     if not input_path.exists():
         raise FileNotFoundError(f"Input path not found: {input_path}")
@@ -252,6 +256,7 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
     zero_pruning = config.preprocessing.preprocessor.zero_pruning if config and hasattr(config.preprocessing.preprocessor, 'zero_pruning') else False
     zero_pruning_padding = config.preprocessing.preprocessor.zero_pruning_padding if config and hasattr(config.preprocessing.preprocessor, 'zero_pruning_padding') else False
     bg_threshold = config.preprocessing.preprocessor.bg_threshold if config and hasattr(config.preprocessing.preprocessor, 'bg_threshold') else 2
+    crop_box = config.crop_box if config and hasattr(config, 'crop_box') else None
 
     if one_hot_encoding:
         # ✅ Multiple folders to process and label
@@ -271,7 +276,9 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
             one_hot_encoding=True,
             zero_pruning=zero_pruning,
             zero_pruning_padding=zero_pruning_padding,
-            bg_threshold=bg_threshold
+            bg_threshold=bg_threshold,
+            crop_box=crop_box,
+            validation=validation 
         )
         processor.save_data(output_dir)
     
@@ -289,6 +296,8 @@ def run(input_dir, output_dir=None, config=None, quiet=False):
             one_hot_encoding=False,
             zero_pruning=zero_pruning,
             zero_pruning_padding=zero_pruning_padding,
-            bg_threshold=bg_threshold
+            bg_threshold=bg_threshold,
+            crop_box=crop_box,
+            validation=validation
         )
         processor.save_data(output_dir)
