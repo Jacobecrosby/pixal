@@ -23,23 +23,23 @@ args = parser.parse_args()
 config = load_config(args.config)
 
 # TensorFlow and CUDA settings
-if config.enable_memory_growth:
+if config.model_training.enable_memory_growth:
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 
-if config.mixed_precision:
+if config.model_training.mixed_precision:
     from tensorflow.keras import mixed_precision
     mixed_precision.set_global_policy('mixed_float16')
 
-if config.TF_GPU_ALLOCATOR:
+if config.model_training.TF_GPU_ALLOCATOR:
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
-if config.CPU_MULTI_THREADING:
-    tf.config.threading.set_intra_op_parallelism_threads(config.Available_CPU)
-    tf.config.threading.set_inter_op_parallelism_threads(config.Available_CPU)
+if config.model_training.CPU_MULTI_THREADING:
+    tf.config.threading.set_intra_op_parallelism_threads(config.model_training.Available_CPU)
+    tf.config.threading.set_inter_op_parallelism_threads(config.model_training.Available_CPU)
 
-if config.HYBRID_MODE:
+if config.model_training.HYBRID_MODE:
     tf.config.set_soft_device_placement(True)
     tf.debugging.set_log_device_placement(True)
 
@@ -89,33 +89,35 @@ x_train, x_val = train_test_split(X, test_size=0.2, random_state=42)
 
 # Prepare params
 params = {
-    'architecture': config.autoencoder_architecture,
-    'one_hot_encoding': config.one_hot_encoding,
-    'learning_rate': float(config.learning_rate),
+    'architecture': config.model_training.autoencoder_architecture,
+    'one_hot_encoding': config.model_training.one_hot_encoding,
+    'learning_rate': float(config.model_training.learning_rate),
     'input_dim': X.shape[1],
-    'encoder_names': [f'encoder_layer{i+1}' for i in range(len(config.autoencoder_architecture) - 1)],
-    'decoder_names': [f'decoder_layer{i+1}' for i in range(len(config.autoencoder_architecture) - 1)],
-    'epochs': config.n_epochs,
-    'batchsize': config.batchsize,
-    'loss_function': config.loss_function,
-    'use_gradient_tape': config.use_gradient_tape,
-    'patience': config.patience,
-    'modelName': config.model_name,
-    'regularization': getattr(config, 'regularization', None),
-    'l1_regularization': getattr(config, 'l1_regularization', 0.001),
-    'l2_regularization': getattr(config, 'l2_regularization', 0.001),
+    'encoder_names': [f'encoder_layer{i+1}' for i in range(len(config.model_training.autoencoder_architecture) - 1)],
+    'decoder_names': [f'decoder_layer{i+1}' for i in range(len(config.model_training.autoencoder_architecture) - 1)],
+    'epochs': config.model_training.n_epochs,
+    'batchsize': config.model_training.batchsize,
+    'loss_function': config.model_training.loss_function,
+    'use_gradient_tape': config.model_training.use_gradient_tape,
+    'patience': config.model_training.patience,
+    'modelName': config.model_training.model_name,
+    'regularization': getattr(config.model_training, 'regularization', None),
+    'l1_regularization': getattr(config.model_training, 'l1_regularization', 0.001),
+    'l2_regularization': getattr(config.model_training, 'l2_regularization', 0.001),
     'log_date': log_date,
     'timestamp': log_time,
     'fig_path': str(model_dir),
     'model_path': str(model_dir),
-    'label_latent_size': config.label_latent_size,
-    'output_activation': config.output_activation
+    'label_latent_size': config.model_training.label_latent_size,
+    'output_activation': config.model_training.output_activation
 }
 
 # Train
 autoencoder = Autoencoder(params)
+autoencoder.build_model(input_dim=X.shape[1])
+
 autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
-model_file = model_dir / f"{config.model_name}.{config.model_file_extension}"
+model_file = model_dir / f"{config.model_training.model_name}.{config.model_training.model_file_extension}"
 autoencoder.save_model(model_file)
 
 # Save metadata
@@ -125,7 +127,7 @@ total_time = datetime.datetime.now() - datetime.datetime.strptime(log_time, "%H-
     day=datetime.datetime.now().day
 )
 params['total_training_time'] = str(total_time)
-yaml_path = metadata_dir / f"{config.model_name}.yaml"
+yaml_path = metadata_dir / f"{config.model_training.model_name}.yaml"
 with open(yaml_path, 'w') as f:
     yaml.dump(params, f)
 logger.info("Training complete")

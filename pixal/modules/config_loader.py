@@ -42,6 +42,9 @@ def resolve_parent_inserted_path(path_or_obj, folder_name, insert_depth=1):
     return parent / folder_name / relative_tail
 
 class ConfigNamespace(SimpleNamespace):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def __getitem__(self, key):
         return getattr(self, key)
 
@@ -95,3 +98,13 @@ def configure_pixal_logger(log_file):
     logger.propagate = False
 
     return logger
+
+def load_and_merge_configs(config_dir):
+    """Merge all YAML files in a directory into one config dictionary."""
+    config_dir = Path(config_dir)
+    merged = {}
+    for file in sorted(config_dir.glob("*.yaml")):
+        with open(file, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+            merged.update(cfg)
+    return merged
