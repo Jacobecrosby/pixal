@@ -13,11 +13,8 @@ PIXAL (PIXel-based Anomaly Locator) is a modular deep learning framework designe
 The framework includes tools for:
 
 * Image preprocessing, including background removal, alignment, zero-pruning, and ML input processing
-
 * Flexible training with optional one-hot labels and configurable architectures
-
 * Modular validation and anomaly visualization (heatmaps, ROC, loss histograms)
-
 * Metadata tracking and reproducibility for experimental pipelines
 
 PIXAL is highly extensible — other model types and preprocessing pipelines can be added with minimal changes.
@@ -105,3 +102,41 @@ Choose what diagnostic plots to generate after training:
 * Log-based vs absolute loss plotting.
 * Loss cut threshold to define anomaly threshold
 
+## Paths
+
+PIXAL resolves all data inputs/outputs relative to a few base directories. There are two main base paths, all preprocessing and model trainings are output to `/out` and all validation and detection are output to `/validate`. This YAML allows centralized control of:
+
+* `component_model_path`: where trained models and logs are saved.
+* `component_validate_path`: path used during validation and detection.
+
+The naming of these two sections are the only names the user should alter. Each section (like remove_background_path, aligned_images_path, etc.) defines a name and a base, which are combined at runtime using PIXAL’s recursive path resolution system.
+
+### Example
+
+```
+aligned_images_path:
+  aligned_images: "aligned_images"
+  base: *preprocessed_images_path
+```
+This lets PIXAL dynamically build:
+```
+out/R0_Triplet_Data_Flex_F1_pink_prune_2pool_rgb/preprocessed_images/aligned_images
+```
+
+### Advanced Behavior
+
+* Hierarchical Namespacing: All configurations are parsed into nested Python namespaces (`config.preprocessing.preprocessor.pool_size`, etc.) for intuitive access.
+
+* Metadata: PIXAL automatically stores and saves parameters, including bounding box crop data from zero-pruning as metadata for use in validation.
+
+* Multi-file Merging:  PIXAL merges multiple metadata YAMLs in a directory into one logical config object. These merged multiple YAMLs in a directory into one logical config object. This gives users separate reusable preprocessing.yaml, model_training.yaml, and plotting.yaml files while still combining them at runtime.
+
+# Preprocessing Pipeline
+
+PIXAL includes a modular and efficient preprocessing pipeline designed to prepare image data for machine learning-based anomaly detection. The image shown is the front of the R0 Triplet Data Flex Flavor 1 which will be used as an example going through this pipeline. Below are the key stages:
+
+<p align="center">
+  <img src="/pixal/assets/preprocessing/image_436995.jpg" alt="Sublime's custom image"/>
+</p>
+
+## Background Removal

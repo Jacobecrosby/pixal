@@ -36,6 +36,7 @@ out/
 *.h5
 *.keras
 !pixal/assets/**/*.png
+!pixal/assets/**/*.jpg
 
 
 # Configs that should stay local
