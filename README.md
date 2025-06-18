@@ -379,3 +379,66 @@ Visual outputs include:
 
 <a name="how-to-run"></a>
 # How to Run PIXAL
+
+The commands to run PIXAL are streamlined to reduce the amount of input of the user. The commands arguments can be manually inputted, if not, it will follow the `paths.yaml` configuration file to find the relevant files used for the process.
+
+[!IMPORTANT]
+Prior to preprocessing your dataset, alter the section `component_model_path: &component_model_path` in the `paths.yaml` file to match your component name
+
+The commands included in the PIXAL framework can be seen using the `-h`
+```
+Pixel-based Anomaly Detection CLI
+
+positional arguments:
+  {preprocess,remove_bg,align,make_input,train,validate,detect}
+    preprocess          Run all preprocessing steps on input images
+    remove_bg           Remove background from images
+    align               Align images
+    make_input          Uses ImagePreprocessor to make ML input
+    train               Train autoencoder model(s)
+    validate            Run validation (preprocess + detect) on new images
+    detect              Run anomaly detection on new images
+
+options:
+  -h, --help            show this help message and exit
+```
+## Preprocessing
+
+The preprocessing pipeline is included in a single command, but each step can be ran separately if needed. Ensure the dataset and the nested directories are properly named prior to running. To run the entire pipeline:
+```
+pixal preprocess -i /path/to/component/
+```
+Loading bars are shown for each preprocessing step.
+
+If separate steps are needed to be ran, make sure to use the proper input for an argument.
+```
+pixal align -i /path/to/remove_bg/images/
+```
+
+## Training
+
+The `train` command can take in input or assume you're training a model based on the preprocessed input dictated by the `paths.yaml` configuration file. If it's safe to assume you're using this preprocessed data, you can just run:
+```
+pixal train
+```
+Otherwise,
+```
+pixal train -i /path/to/preprocessed/data/
+```
+
+## Validation
+
+Validation preprocesses the image that needs to be validated while also running and production the detection plots. 
+
+[!IMPORTANT]
+Prior to validating your image, alter the section `ccomponent_validate_path: &component_validate_path` in the `paths.yaml` file to match your component name
+
+To run the validation pipeline, run:
+```
+pixal validate -i /path/to/image/
+```
+
+If the image has already been preprocessed and you want to just run the detection script to produce the defect plots, you can run:
+```
+pixal detect -i /path/to/preprocessed/image/
+```
