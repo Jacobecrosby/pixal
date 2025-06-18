@@ -25,7 +25,7 @@ PIXAL is highly extensible — other model types and preprocessing pipelines can
 * [Input Data Formatting](#input-data-formatting)
 * [Configuration System and Parameters](#configuration-system-and-parameters)
 * [Preprocessing Pipeline](#preprocessing-pipeline)
-* [Model Training](#model-training)
+* [Model Training](#model-training-section)
 
 <a name="setup"></a>
 # Setup
@@ -245,7 +245,7 @@ preprocessing:
 Important parameters like `crop_box`, `input_dim`, and processing shapes are saved to:
 `out/<component>/<type>/metadata/preprocessing.yaml`
 
-<a name="model-training"></a>
+<a name="model-training-section"></a>
 # Model Training
 
 PIXAL supports flexible and modular training of deep learning models (currently autoencoders) for anomaly detection in pixel-aligned image data.
