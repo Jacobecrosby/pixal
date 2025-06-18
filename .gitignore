@@ -35,6 +35,8 @@ out/
 *.csv
 *.h5
 *.keras
+!pixal/assets/**/*.png
+
 
 # Configs that should stay local
 *.env
