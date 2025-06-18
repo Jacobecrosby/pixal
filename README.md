@@ -441,3 +441,6 @@ If the image has already been preprocessed and you want to just run the detectio
 ```
 pixal detect -i /path/to/preprocessed/image/
 ```
+
+> [!NOTE]  
+> Highlights information that users should take into account, even when skimming.
