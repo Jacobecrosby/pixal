@@ -57,12 +57,12 @@ This script will:
 
 * Set up base configuration files
 
-[!NOTE]
-For GPU training, ensure you have a compatible NVIDIA driver and CUDA/cuDNN stack installed. The framework is tested with TensorFlow 2.15+.
-[!IMPORTANT]
-Note for Windows users: Native Windows is not officially supported. Use WSL2 (Windows Subsystem for Linux) or Git Bash for best results.
-[!WARNING]
-Note for macOS users: Due to hardware and driver limitations, TensorFlow and related tools will run in CPU-only mode. Training and inference will be slower, but fully functional.
+> [!NOTE]
+> For GPU training, ensure you have a compatible NVIDIA driver and CUDA/cuDNN stack installed. The framework is tested with TensorFlow 2.15+.
+> [!IMPORTANT]
+> Note for Windows users: Native Windows is not officially supported. Use WSL2 (Windows Subsystem for Linux) or Git Bash for best results.
+> [!WARNING]
+> Note for macOS users: Due to hardware and driver limitations, TensorFlow and related tools will run in CPU-only mode. Training and inference will be slower, but fully functional.
 
 ## 3. Verify the Environment
 
@@ -382,8 +382,8 @@ Visual outputs include:
 
 The commands to run PIXAL are streamlined to reduce the amount of input of the user. The commands arguments can be manually inputted, if not, it will follow the `paths.yaml` configuration file to find the relevant files used for the process.
 
-[!IMPORTANT]
-Prior to preprocessing your dataset, alter the section `component_model_path: &component_model_path` in the `paths.yaml` file to match your component name
+> [!IMPORTANT]
+> Prior to preprocessing your dataset, alter the section `component_model_path: &component_model_path` in the `paths.yaml` file to match your component name
 
 The commands included in the PIXAL framework can be seen using the `-h`
 ```
@@ -430,7 +430,8 @@ pixal train -i /path/to/preprocessed/data/
 
 Validation preprocesses the image that needs to be validated while also running and production the detection plots. 
 
-[!IMPORTANT]Prior to validating your image, alter the section `ccomponent_validate_path: &component_validate_path` in the `paths.yaml` file to match your component name
+> [!IMPORTANT]
+> Prior to validating your image, alter the section `ccomponent_validate_path: &component_validate_path` in the `paths.yaml` file to match your component name
 
 To run the validation pipeline, run:
 ```
@@ -441,6 +442,3 @@ If the image has already been preprocessed and you want to just run the detectio
 ```
 pixal detect -i /path/to/preprocessed/image/
 ```
-
-> [!NOTE]  
-> Highlights information that users should take into account, even when skimming.
