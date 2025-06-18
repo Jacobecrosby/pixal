@@ -133,10 +133,104 @@ out/R0_Triplet_Data_Flex_F1_pink_prune_2pool_rgb/preprocessed_images/aligned_ima
 
 # Preprocessing Pipeline
 
-PIXAL includes a modular and efficient preprocessing pipeline designed to prepare image data for machine learning-based anomaly detection. The image shown is the front of the R0 Triplet Data Flex Flavor 1 which will be used as an example going through this pipeline. Below are the key stages:
+PIXAL includes a modular and efficient preprocessing pipeline designed to prepare image data for machine learning-based anomaly detection. The image shown is the front of the R0 Triplet Data Flex Flavor 1 which will be used as an example going through this pipeline, taken by a Tagarno Microscope. Below are the key stages:
 
 <p align="center">
-  <img src="/pixal/assets/preprocessing/image_436995.jpg" alt="Sublime's custom image"/>
+  <img src="/pixal/assets/preprocessing/image_436995.jpg" alt="R0 Triplet Data Flex Flavor 1 front with no preprocessing"/>
 </p>
 
 ## Background Removal
+
+Removes the background from each input image to isolate the object of interest. This is done using the `rembg` library with optional multithreaded support.
+
+Purpose:
+Reduce noise and standardize input for feature extraction.
+
+**Config settings:**
+```
+preprocessing:
+  remove_background:
+    max_workers: 8
+  rename_images: true
+```
+**Output:**
+`component/preprocessed_images/background_removed/`
+
+<p align="center">
+  <img src="/pixal/assets/preprocessing/R0_Triplet_Data_Flex_F1_F_Pink_bg_000_no_bg.png" alt="R0 Triplet Data Flex Flavor 1 front with its background removed"/>
+</p>
+
+## Image Alignment
+
+Aligns each background-removed image to a reference using feature matching (KNN, RANSAC). Ensures consistent orientation and spatial scale.
+
+**Purpose:**
+Standardize object placement across the dataset.
+
+**Config settings:**
+```
+preprocessing:
+  alignment:
+    knn_ratio: 0.8
+    number_of_points: 5
+    ransac_threshold: 7.0
+    MIN_SCORE_THRESHOLD: 0.5
+    MAX_MSE_THRESHOLD: 10.0
+    MIN_GOOD_MATCHES: 20
+  draw_matches: true
+  save_metrics: true
+  save_overlays: true
+```
+**Output:**
+`preprocessed_images/aligned_images/`
+`figures/aligned_metrics/`
+
+<p align="center">
+  <img src="/pixal/assets/preprocessing/match_2_0.png" alt="Two R0 Triplet Data Flexes Flavor 1 showing 10 matching points found using KNN"/>
+</p>
+
+## Zero Pruning (Optional)
+
+Cropping step that removes zero-valued background pixels after alignment. The system finds the tightest bounding box around the non-zero pixels (with configurable padding) and crops all images to the same region.
+
+**Purpose:**
+Reduce input dimensionality while preserving relevant information.
+
+**Config settings:**
+```
+preprocessing:
+  preprocessor:
+    zero_pruning: true
+    zero_pruning_padding: 5
+```
+**Output**
+Internally processed images; cropping dimensions are saved in:
+`metadata/preprocessing.yaml`
+
+<p align="center">
+  <img src="/pixal/assets/preprocessing/crop_preview.png" alt="R0 Triplet Data Flexes Flavor 1 after zero pruning"/>
+</p>
+
+## Preprocesor -> ML Input Conversion
+
+Converts aligned (and optionally pruned) images into normalized ML-ready inputs. This includes:
+
+* Channel selection can be any combination of (R, G, B, H, S, V)
+* Average pooling to reduce resolution
+* Per-channel normalization
+* .npz output containing data, labels (if applicable), and shape
+
+```
+preprocessing:
+  preprocessor:
+    file_name: "out.npz"
+    pool_size: 2
+    channels: ["R", "G", "B"]
+```
+**Output:**
+`out/<component>/<type>/out.npz`
+
+## Metadata Output
+Important parameters like `crop_box`, `input_dim`, and processing shapes are saved to:
+`out/<component>/<type>/metadata/preprocessing.yaml`
+
