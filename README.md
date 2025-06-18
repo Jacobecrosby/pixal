@@ -67,7 +67,7 @@ pixal -h
 
 Since components have different types of images, they should be separated in different directories that are labeled accordingly. The framework parses through nested folders and uses the naming convention for the output.
 
-![Diagram of nested directories for the R0 Triplet Data Flex F1, showing input directory for preprocessing](pixal/assets/nested_directories.png)
+![Diagram of nested directories for the R0 Triplet Data Flex F1, showing input directory for preprocessing](/pixal/assets/nested_directories.png)
 
 # Configuration System and Parameters
 
