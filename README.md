@@ -24,8 +24,6 @@ PIXAL is highly extensible — other model types and preprocessing pipelines can
 * [Setup](#setup)
 
 <a name="setup"></a>
-or is this?
-
 # Setup
 
 PIXAL is tested and works best with **Python 3.10.9**. For consistent results, we recommend creating a clean virtual environment with this version.
