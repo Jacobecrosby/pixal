@@ -19,6 +19,13 @@ The framework includes tools for:
 
 PIXAL is highly extensible — other model types and preprocessing pipelines can be added with minimal changes.
 
+# Table of Contents
+
+* [Setup](#setup)
+
+<a name="setup"></a>
+or is this?
+
 # Setup
 
 PIXAL is tested and works best with **Python 3.10.9**. For consistent results, we recommend creating a clean virtual environment with this version.
@@ -291,4 +298,5 @@ Just as the per-type mode, the model is saved both as a `.keras` file and its we
 `out/<component>/model/<model_name>.weights.h5`
 Currently, models are loaded and rebuilt using the `<model_name>.weights.h5` for validation.
 
-## 
+# Validation and Detection
+
