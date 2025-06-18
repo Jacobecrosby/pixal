@@ -234,3 +234,61 @@ preprocessing:
 Important parameters like `crop_box`, `input_dim`, and processing shapes are saved to:
 `out/<component>/<type>/metadata/preprocessing.yaml`
 
+# Model Training
+
+PIXAL supports flexible and modular training of deep learning models (currently autoencoders) for anomaly detection in pixel-aligned image data.
+
+## The Autoencoder Architecture
+
+An Autoencoder is a type of neural network that learns to compress and reconstruct its input. It's structured into three parts:
+
+* Encoder: Compresses the input image into a smaller latent representation. This part captures the most essential features of the data.
+* Latent Space: The compressed representation. It’s the "bottleneck" that forces the network to learn meaningful features.
+* Decoder: Attempts to reconstruct the original image from the latent representation.
+
+In the context of PIXAL, this model learns to reproduce defect-free components. During validation, poor reconstruction (i.e., higher pixel-wise loss) indicates anomalous or defective regions.
+
+<p align="center">
+  <img src="/pixal/assets/autoencoder_architecture.png" alt="R0 Triplet Data Flexes Flavor 1 after zero pruning"/>
+</p>
+
+## Input Format
+
+Before training, images must be preprocessed and converted into .npz files using the preprocessing pipeline (see previous section). Each .npz file contains:
+
+* `data`: flattened, normalized image vectors
+* `labels`: (only if using one-hot encoding)
+* `shape`: original image shape post-pooling or zero-pruning
+
+## Training Modes
+
+PIXAL supports **two training modes:**
+
+### 1. Per-Type Model (default)
+
+Trains a separate model for each image type (e.g. component variant or class). Each .npz file corresponds to a single type.
+```
+model_training:
+  one_hot_encoding: False
+```
+* **Benefits:** Higher performance, more specific models
+
+* **Model Output:**
+The model is saved both as a `.keras` file and its weights as `<model_name>.weights.h5`, these can be found in:
+`out/<component>/<type>/model/<model_name>.weights.h5`
+Currently, models are loaded and rebuilt using the `<model_name>.weights.h5` for validation.
+
+### 2. One-Hot Encoding Mode
+
+Trains a single model on all types of images, with one-hot encoded class labels appended to the latent space.
+```
+model_training:
+  one_hot_encoding: True
+```
+* **Benefits:** Generalized model across types
+* **Model Output:**
+Just as the per-type mode, the model is saved both as a `.keras` file and its weights as `<model_name>.weights.h5`, these can be found in:
+`out/<component>/model/<model_name>.weights.h5`
+Currently, models are loaded and rebuilt using the `<model_name>.weights.h5` for validation.
+
+## 
