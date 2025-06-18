@@ -430,8 +430,7 @@ pixal train -i /path/to/preprocessed/data/
 
 Validation preprocesses the image that needs to be validated while also running and production the detection plots. 
 
-[!IMPORTANT]
-Prior to validating your image, alter the section `ccomponent_validate_path: &component_validate_path` in the `paths.yaml` file to match your component name
+[!IMPORTANT]Prior to validating your image, alter the section `ccomponent_validate_path: &component_validate_path` in the `paths.yaml` file to match your component name
 
 To run the validation pipeline, run:
 ```
