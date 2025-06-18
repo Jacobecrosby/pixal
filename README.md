@@ -26,6 +26,8 @@ PIXAL is highly extensible — other model types and preprocessing pipelines can
 * [Configuration System and Parameters](#configuration-system-and-parameters)
 * [Preprocessing Pipeline](#preprocessing-pipeline)
 * [Model Training](#model-training-section)
+* [Validation and Detection](#validation-and-detection)
+* [How to Run](#how-to-run)
 
 <a name="setup"></a>
 # Setup
@@ -303,5 +305,77 @@ Just as the per-type mode, the model is saved both as a `.keras` file and its we
 `out/<component>/model/<model_name>.weights.h5`
 Currently, models are loaded and rebuilt using the `<model_name>.weights.h5` for validation.
 
-# Validation and Detection
+<a name="validation-and-detection"></a>
+# Validation and Anomaly Detection
 
+Once a model is trained, PIXAL performs validation and anomaly detection by comparing reconstructed images to their input counterparts. Deviations between the input and reconstruction indicate potential anomalies (e.g., damaged hardware regions).
+
+## Validation Workflow
+
+The validation process mirrors the preprocessing and training workflow:
+
+### 1. New Image Set
+
+* A new directory of unseen images (e.g., from a production batch) is passed into the validation routine.
+* These images are organized in per-type folders (if one_hot_encoding=False) or as a flat directory (if True).
+
+### 2. Preprocessing
+
+* Background removal
+* Image alignment (using previously saved reference images)
+* Zero pruning using pre-saved crop box metadata
+* Normalization & pooling
+* Conversion into .npz format
+
+### 3. Model Selection
+
+* Each .npz file is paired with its trained model and metadata (architecture, crop box, etc.).
+* Model is rebuilt and weights are loaded.
+
+### 4. Prediction
+
+* The model reconstructs the input image(s).
+* The reconstruction is compared to the original input to compute pixel-wise reconstruction errors.
+
+## Detection Logic
+
+PIXAL uses the Mean Squared Error (MSE) between input and reconstruction to assess anomalies.
+
+* Low MSE → normal reconstruction
+* High MSE → possible anomaly
+
+You can configure:
+```
+plotting:
+  loss_cut: 0.7              # Threshold for anomaly
+  use_log_loss: False        # Use log-scale loss when computing anomaly mask
+```
+
+## Detection Output
+For each validated image type, PIXAL saves:
+
+```
+validate/
+  └── <component>/
+      └── <type>/
+          ├── logs/
+          ├── metadata/
+          ├── figures/
+          │   ├── anomaly_overlay_*.png
+          │   ├── pixel_loss_histogram.png
+          │   └── ...
+          └── aligned_metrics/
+```
+
+Visual outputs include:
+
+| Output                          | Description                                    |
+| ------------------------------- | ---------------------------------------------- |
+| `anomaly_overlay_*.png`         | Heatmap of pixel-wise anomaly regions          |
+| `pixel_loss_histogram.png`      | Histogram of MSE across all pixels             |
+| `combined_distribution_log.png` | Overlay of predicted and true pixel values     |
+| `roc_curve`, `pr_curve`         | ROC/PR curve using pixel-wise MSE scores       |
+| `confusion_matrix.png`          | Optional confusion matrix (if thresholds used) |
+
+<a name="how-to-run"></a>
+# How to Run PIXAL
