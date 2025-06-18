@@ -22,6 +22,10 @@ PIXAL is highly extensible — other model types and preprocessing pipelines can
 # Table of Contents
 
 * [Setup](#setup)
+* [Input Data Formatting](#input-data-formatting)
+* [Configuration System and Parameters](#configuration-system-and-parameters)
+* [Preprocessing Pipeline](#preprocessing-pipeline)
+* [Model Training](#model-training)
 
 <a name="setup"></a>
 # Setup
@@ -64,13 +68,14 @@ Check to see if the PIXAL framework was properly setup by running the help comma
 ```
 pixal -h
 ```
-
+<a name="input-data-formatting"></a>
 # Input Data Formatting
 
 Since components have different types of images, they should be separated in different directories that are labeled accordingly. The framework parses through nested folders and uses the naming convention for the output.
 
 ![Diagram of nested directories for the R0 Triplet Data Flex F1, showing input directory for preprocessing](/pixal/assets/nested_directories.png)
 
+<a name="configuration-system-and-parameters"></a>
 # Configuration System and Parameters
 
 PIXAL uses modular YAML-based configuration files to define preprocessing steps, model training parameters, and all path resolutions. This design enables reproducibility, clarity, and easy experimentation.
@@ -136,6 +141,7 @@ out/R0_Triplet_Data_Flex_F1_pink_prune_2pool_rgb/preprocessed_images/aligned_ima
 
 * Multi-file Merging:  PIXAL merges multiple metadata YAMLs in a directory into one logical config object. These merged multiple YAMLs in a directory into one logical config object. This gives users separate reusable preprocessing.yaml, model_training.yaml, and plotting.yaml files while still combining them at runtime.
 
+<a name="preprocessing-pipeline"></a>
 # Preprocessing Pipeline
 
 PIXAL includes a modular and efficient preprocessing pipeline designed to prepare image data for machine learning-based anomaly detection. The image shown is the front of the R0 Triplet Data Flex Flavor 1 which will be used as an example going through this pipeline, taken by a Tagarno Microscope. Below are the key stages:
@@ -239,6 +245,7 @@ preprocessing:
 Important parameters like `crop_box`, `input_dim`, and processing shapes are saved to:
 `out/<component>/<type>/metadata/preprocessing.yaml`
 
+<a name="model-training"></a>
 # Model Training
 
 PIXAL supports flexible and modular training of deep learning models (currently autoencoders) for anomaly detection in pixel-aligned image data.
