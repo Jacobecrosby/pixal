@@ -91,8 +91,8 @@ def remove_backgrounds(input_folder, output_folder, max_workers=4, quiet=False, 
 
                     
 def run(input_folder, output_folder, config=None, quiet=False,rename_images=False):
-    max_workers = config.remove_background.max_workers if config and hasattr(config, 'remove_background') else 4
-    rename_images = config.rename_images if config and hasattr(config, 'rename_images') else False
-    one_hot_encoding = config.one_hot_encoding if config and hasattr(config, 'one_hot_encoding') else False
+    max_workers = config.preprocessing.remove_background.max_workers if config and hasattr(config, 'remove_background') else 4
+    rename_images = config.preprocessing.rename_images if config and hasattr(config, 'rename_images') else False
+    one_hot_encoding = config.model_training.one_hot_encoding if config and hasattr(config, 'one_hot_encoding') else False
     remove_backgrounds(input_folder, output_folder, max_workers,quiet=quiet,rename_images=rename_images,one_hot_encoding=one_hot_encoding)
 
