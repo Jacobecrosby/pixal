@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from pixal.preprocessing import remove_background, align_images, imagePreprocessor
-from pixal.modules.config_loader import load_config, resolve_path, load_and_merge_configs, _dict_to_namespace
+from pixal.modules.config_loader import load_config, resolve_path, load_and_merge_configs, _dict_to_namespace, resolve_parent_inserted_path
 import subprocess
 import sys
 
@@ -82,7 +82,7 @@ def run_validation(input_dir, config=None, quiet=False):
 
             logger.info(f"🔍 Running validation for {type_folder.name}")
 
-            config_path = str(Path(resolve_path(path_config.component_model_path)) / type_folder.name / "metadata")
+            config_path = resolve_parent_inserted_path(path_config.metadata_path, type_folder.name,1)
             config = load_and_merge_configs(config_path)
             config = _dict_to_namespace(config)
 
@@ -90,7 +90,6 @@ def run_validation(input_dir, config=None, quiet=False):
             base_path = resolve_path(path_config.component_validate_path) / type_folder.name
             #model_dir = resolve_path(path_config.component_model_path) / type_folder.name / resolve_path(path_config.model_path.model) 
             model_dir = config.model_path
-            print(model_dir)
             
             # Dynamically resolve per-type paths
             bg_removed_dir = base_path / resolve_path(path_config.general_remove_background_path)

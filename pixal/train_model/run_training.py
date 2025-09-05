@@ -34,8 +34,8 @@ def run(input_file, config, quiet):
         
         print(f"Launching subprocess for {npz_file}")
         subprocess.run([
-                sys.executable,  # Python executable
-                "pixal/train_model/train_one_hot.py",  # Relative path to the subprocess script
+                sys.executable,  
+                "pixal/train_model/train_one_hot.py",  
                 "--input", str(npz_file),
                 "--config", "configs/parameters.yaml"
         ])
@@ -59,8 +59,8 @@ def run(input_file, config, quiet):
                 yaml.dump({"model_training": training_section}, outfile, default_flow_style=False)
             
             subprocess.run([
-                sys.executable,  # Python executable
-                "pixal/train_model/train_autoencoder.py",  # Relative path to the subprocess script
+                sys.executable,  
+                "pixal/train_model/train_autoencoder.py",  
                 "--input", str(npz_path),
                 "--config", "configs/parameters.yaml"
             ])
