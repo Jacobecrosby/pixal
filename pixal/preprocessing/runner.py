@@ -1,12 +1,16 @@
 import logging
 import yaml
+from ruamel.yaml import YAML
 from pathlib import Path
 from pixal.preprocessing import remove_background, align_images, imagePreprocessor
 from pixal.modules.config_loader import load_config, resolve_path, resolve_parent_inserted_path
-
 def run_preprocessing(input_dir, config=None, quiet=False):
+    ruyaml = YAML()
+    with open("configs/paths.yaml", "r") as f:
+        paths = ruyaml.load(f)
     path_config = load_config("configs/paths.yaml")
     input_path = Path(input_dir)
+    
 
     # Load the original YAML
     with open("configs/parameters.yaml", "r") as infile:
@@ -14,6 +18,7 @@ def run_preprocessing(input_dir, config=None, quiet=False):
      # Extract the 'preprocessing' section
     preprocessing_section = full_config.get("preprocessing", {})
     plotting_section = full_config.get("plotting", {})
+    
     
     if config.model_training.one_hot_encoding:
         # 📦 Standard one-hot preprocessing — all folders together
@@ -80,6 +85,8 @@ def run_preprocessing(input_dir, config=None, quiet=False):
                 yaml.dump({"preprocessing": preprocessing_section}, outfile, default_flow_style=False)
             with open(metadata_path / "plotting.yaml", "w") as outfile:
                 yaml.dump({"plotting": plotting_section}, outfile, default_flow_style=False)
+            with open(metadata_path / "paths.yaml", "w") as outfile:
+                ruyaml.dump(paths, outfile)
                 
             # Reconfigure logger for each folder
             log_file = log_path / "preprocessing.log"

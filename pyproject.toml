@@ -24,7 +24,8 @@ dependencies = [
   "opencv-python",
   "numba",
   "matplotlib",
-  "tqdm"
+  "tqdm",
+  "ruamel.yaml"
 ]
 
 [project.optional-dependencies]

@@ -117,8 +117,8 @@ autoencoder = Autoencoder(params)
 autoencoder.build_model(input_dim=X.shape[1])
 
 autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
-model_file = model_dir+f"/{config.model_training.model_name}.{config.model_training.model_file_extension}"
-autoencoder.save_model(model_file)
+model_file = model_dir / f"{config.model_training.model_name}.{config.model_training.model_file_extension}"
+autoencoder.save_model(str(model_file))
 
 # Save metadata
 total_time = datetime.datetime.now() - datetime.datetime.strptime(log_time, "%H-%M-%S").replace(

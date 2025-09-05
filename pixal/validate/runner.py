@@ -85,7 +85,6 @@ def run_validation(input_dir, config=None, quiet=False):
             config_path = resolve_parent_inserted_path(path_config.metadata_path, type_folder.name,1)
             config = load_and_merge_configs(config_path)
             config = _dict_to_namespace(config)
-
             reference_dir = resolve_path(path_config.component_model_path) / type_folder.name / resolve_path(path_config.general_aligned_images_path)
             base_path = resolve_path(path_config.component_validate_path) / type_folder.name
             #model_dir = resolve_path(path_config.component_model_path) / type_folder.name / resolve_path(path_config.model_path.model) 
