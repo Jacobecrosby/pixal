@@ -100,9 +100,12 @@ def run_validation(input_dir, config=None, quiet=False):
             for d in [bg_removed_dir, aligned_dir, metric_dir, npz_dir]:
                 d.mkdir(parents=True, exist_ok=True)
 
+            preprocess_input = bg_removed_dir
             remove_background.run(type_folder, bg_removed_dir, config=config, quiet=quiet)
-            align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet, detect=True)
-            imagePreprocessor.run(aligned_dir, npz_dir, config=config, quiet=quiet,validation=True)
+            if config.preprocessing.alignment.apply_alignment:
+                align_images.run(bg_removed_dir, aligned_dir, reference_dir, metric_dir, config=config, quiet=quiet, detect=True)
+                preprocess_input = aligned_dir
+            imagePreprocessor.run(preprocess_input, npz_dir, config=config, quiet=quiet,validation=True)
 
             args = [
                 sys.executable,

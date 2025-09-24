@@ -440,7 +440,90 @@ To run the validation pipeline, run:
 pixal validate -i /path/to/image/
 ```
 
+## Model saving & MLflow integration
+
+PIXAL currently writes trained models to the `out/.../model/` directory in two forms:
+
+- Full Keras checkpoint file (```.keras```) — this is the checkpoint file written by the Keras `ModelCheckpoint` callback during training. It is suitable for restoring model weights via `model.load_weights(...)` or for Keras to read back a saved model depending on how it was written.
+- Weights file (```<model_name>.weights.h5```) — the project currently also calls `save_weights(...)` after training; validation and downstream code rebuilds the model architecture and then calls `load_weights(...)` to restore weights.
+
+Example file locations:
+
+```
+out/<component>/<type>/model/<model_name>.keras
+out/<component>/<type>/model/<model_name>.weights.h5
+```
+
+Loading the model for validation (current behavior)
+
+```python
+from pixal.train_model.autoencoder import Autoencoder
+
+# build same `params` dict used for training
+model = Autoencoder(params)
+model.build_model(input_dim=params['input_dim'])
+model.load_weights(str(weights_path))
+```
+
+MLflow quick-start (optional)
+
+If you want to track experiments with MLflow, install MLflow into your environment:
+
+```bash
+pip install mlflow
+```
+
+By default MLflow will create an `mlruns/` directory in the current working directory. To use a remote tracking server, set:
+
+```bash
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+```
+
+PIXAL includes a small, best-effort integration helper at `pixal/mlflow_utils.py`. When `mlflow` is present, training runs (via the `pixal train` entrypoints) will:
+
+- Start an MLflow run and log the `params` dictionary as run parameters
+- Log per-epoch metrics (loss/val_loss) to MLflow
+- After training, log the saved model/weights and the metadata YAML as artifacts
+
+Recommended improvement (optional)
+
+Right now the project saves weights via `save_weights(...)`. For smoother MLflow model management we recommend saving the full Keras model (SavedModel dir or HDF5) using `model.save(...)` — this enables `mlflow.keras.log_model(...)` and makes it easier to load a model directly from MLflow without rebuilding the architecture by hand.
+
+If you want, I can update `pixal/train_model/autoencoder.py` to (a) call `model.save(...)` instead of `save_weights(...)`, and (b) use `mlflow.keras.log_model(...)` when MLflow is available. This will make models self-contained artifacts in MLflow and simplify validation and deployment.
+
 If the image has already been preprocessed and you want to just run the detection script to produce the defect plots, you can run:
 ```
 pixal detect -i /path/to/preprocessed/image/
 ```
+
+## Available Variables for ML Input
+
+The preprocessing framework supports multiple representations of image pixel values. You can specify a subset (e.g., `["H","S","V"]`) or request all variables by passing `channels="ALL"`. Each variable is normalized to a consistent range (typically [0,1]) to simplify downstream training.
+
+Below is a detailed description of the currently available feature variables:
+`R`, `G`, `B` — Red, Green, Blue channels (linear or gamma-corrected depending on preprocessing). Each channel contains per-pixel intensity values normalized to [0, 1].
+
+`H`, `S`, `V` — Hue, Saturation, Value from HSV colorspace. `H` is represented as degrees mapped to [0,1] (or optionally as sin/cos pairs in derived channels), `S` and `V` are normalized to [0,1].
+
+`Y`, `Cr`, `Cb` — YCbCr colorspace channels: luminance (`Y`) and chroma components (`Cr`, `Cb`). Useful for separating brightness from color information.
+
+`LAB_L`, `LAB_a`, `LAB_b` — CIE LAB color space channels: lightness (`L`) and opponent color axes (`a`, `b`). These are perceptually uniform channels useful when color differences should match human perception.
+
+`LCh_C`, `LCh_sinH`, `LCh_cosH` — Polar form of Lab: chroma (`C`) and hue angle encoded as `sin(H)` and `cos(H)` for continuous, wrap-safe representation of hue.
+
+`r_chroma`, `g_chroma` — Simple chroma-derived channels computed relative to the R and G channels (e.g., R / (R+G+B + eps)). These emphasize the contribution of a single color channel relative to total intensity.
+
+`Opp_O1`, `Opp_O2`, `Opp_O3` — Color-opponent channels (e.g., variants of R-G, R-B, G-B or other opponent transforms). Opponent channels help highlight color contrasts that may indicate defects.
+
+`GradMag` — Gradient magnitude of the luminance or chosen channel (e.g., Sobel magnitude). Useful for edge and texture information.
+
+`Laplacian` — Laplacian filter response (second derivative) capturing blob-like intensity variations and helping detect local defects or spots.
+
+`LocalStd` — Local (neighborhood) standard deviation of intensity (texture measure). Useful to capture local texture variance and noise.
+
+Notes and tips
+
+- You can request specific channels using the `channels` preprocessing option, e.g. `channels: ["H","S","V","GradMag"]`.
+- For hue information, prefer `LCh_sinH`/`LCh_cosH` or `H` wrapped as sin/cos to avoid discontinuities near 0/360 degrees.
+- If using multiple chroma/opponent channels, normalize each channel independently (already performed by PIXAL) so the network can weigh them fairly.
+- Derived channels (`GradMag`, `Laplacian`, `LocalStd`) add texture/structure information and are especially helpful for detecting small or low-contrast defects.

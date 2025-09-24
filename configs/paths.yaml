@@ -5,11 +5,11 @@ validate_out_path: &validate_out_path "./validate"
 
 # ************** Path for component outputs **************
 component_model_path: &component_model_path 
-  component: "Data_set_R0_Triplet_Data_F1"
+  component: "Data_set_R0_Triplet_Data_F1_2ps_6var"
   base: *out_path
 
 component_validate_path: &component_validate_path
-  component: "Data_set_R0_Triplet_Data_F1"
+  component: "Data_set_R0_Triplet_Data_F1_d1_2ps_6var"
   base: *validate_out_path
 
 # ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 

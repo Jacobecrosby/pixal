@@ -6,6 +6,20 @@ import yaml
 import gc
 import numpy as np
 import tensorflow as tf
+
+# Fail fast if the GPU isn't visible
+gpus = tf.config.list_physical_devices("GPU")
+if not gpus:
+    raise RuntimeError("No GPU visible to TensorFlow in this session.")
+for d in gpus:
+    try:
+        tf.config.experimental.set_memory_growth(d, True)
+    except Exception:
+        pass
+
+print("LD_LIBRARY_PATH =", os.environ.get("LD_LIBRARY_PATH", "<unset>"))
+print("CUDA_VISIBLE_DEVICES =", os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"))
+
 import tensorflow.keras.backend as K
 from numba import cuda
 from pathlib import Path
@@ -13,6 +27,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.python.client import device_lib
 from pixal.modules.config_loader import load_config
 from pixal.train_model.autoencoder import Autoencoder
+import pixal.mlflow_utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True, help="Path to a .npz data file")
@@ -47,8 +62,8 @@ if config.model_training.HYBRID_MODE:
 K.clear_session()
 gc.collect()
 tf.keras.backend.clear_session()
-cuda.select_device(0)
-cuda.close()
+#cuda.select_device(0)
+#cuda.close()
 
 # Paths
 npz_path = Path(args.input)
@@ -109,14 +124,30 @@ params = {
     'fig_path': str(model_dir),
     'model_path': str(model_dir),
     'label_latent_size': config.model_training.label_latent_size,
-    'output_activation': config.model_training.output_activation
+    'output_activation': config.model_training.output_activation,
+    'channels': config.preprocessing.preprocessor.channels,
+    'weights': getattr(config.preprocessing.preprocessor, 'weights', [1.0]*len(config.preprocessing.preprocessor.channels)),
+    'masked_loss': config.model_training.get('masked_loss', False),
+    'huber_delta': config.model_training.get('huber_delta', 1.0),
 }
 
 # Train
 autoencoder = Autoencoder(params)
 autoencoder.build_model(input_dim=X.shape[1])
 
-autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
+# Optional MLflow instrumentation (best-effort)
+try:
+    from pixal.mlflow_utils import run_experiment, log_artifact  # type: ignore
+except Exception:
+    run_experiment = None  # type: ignore
+    log_artifact = None  # type: ignore
+
+if run_experiment is not None:
+    with run_experiment(params, run_name=params.get('modelName'), experiment_name=params.get("experimentName", None)):
+        autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
+else:
+    autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
+
 model_file = model_dir / f"{config.model_training.model_name}.{config.model_training.model_file_extension}"
 autoencoder.save_model(str(model_file))
 
@@ -130,4 +161,29 @@ params['total_training_time'] = str(total_time)
 yaml_path = metadata_dir / f"{config.model_training.model_name}.yaml"
 with open(yaml_path, 'w') as f:
     yaml.dump(params, f)
+
+# Log artifacts to MLflow (best-effort)
+try:
+    from pixal.mlflow_utils import log_keras_model  # type: ignore
+except Exception:
+    log_keras_model = None  # type: ignore
+
+if log_artifact is not None:
+    try:
+        log_artifact(str(model_file), artifact_path='model')
+    except Exception:
+        pass
+    try:
+        log_artifact(str(yaml_path), artifact_path='metadata')
+    except Exception:
+        pass
+
+# Also attempt to register the saved model with MLflow (if available)
+if log_keras_model is not None:
+    try:
+        # prefer passing the saved path; mlflow_utils will try to log model instances too
+        log_keras_model(str(model_file), artifact_path='model')
+    except Exception:
+        pass
+
 logger.info("Training complete")
