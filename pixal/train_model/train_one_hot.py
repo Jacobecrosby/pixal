@@ -139,7 +139,19 @@ params = {
 
 # === Model Training ===
 autoencoder = Autoencoder(params)
-autoencoder.compile_and_train(x_train, y_train, x_val, y_val, params)
+
+# Optional MLflow instrumentation (best-effort)
+try:
+    from pixal.mlflow_utils import run_experiment, log_artifact  # type: ignore
+except Exception:
+    run_experiment = None  # type: ignore
+    log_artifact = None  # type: ignore
+
+if run_experiment is not None:
+    with run_experiment(params, run_name=params.get('modelName')):
+        autoencoder.compile_and_train(x_train, y_train, x_val, y_val, params)
+else:
+    autoencoder.compile_and_train(x_train, y_train, x_val, y_val, params)
 
 logger.info(f"Saving model to {model_file}")
 autoencoder.save_model(model_file)
@@ -158,5 +170,28 @@ params['total_training_time'] = str(total_time)
 yaml_path = metadata_dir / f"{config.model_training.model_name}.yaml"
 with open(yaml_path, 'w') as f:
     yaml.dump(params, f, default_flow_style=False)
+
+# Log to MLflow (best-effort)
+if log_artifact is not None:
+    try:
+        log_artifact(str(model_file), artifact_path='model')
+    except Exception:
+        pass
+    try:
+        log_artifact(str(yaml_path), artifact_path='metadata')
+    except Exception:
+        pass
+
+# Also attempt to register the saved model with MLflow (if available)
+try:
+    from pixal.mlflow_utils import log_keras_model  # type: ignore
+except Exception:
+    log_keras_model = None  # type: ignore
+
+if log_keras_model is not None:
+    try:
+        log_keras_model(str(model_file), artifact_path='model')
+    except Exception:
+        pass
 
 logger.info("Script completed")

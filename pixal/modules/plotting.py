@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from pixal.modules.config_loader import load_config, resolve_path, configure_pixal_logger
+from pixal.modules.config_loader import load_config, resolve_path, configure_pixal_logger, deep_getattr
 from sklearn.metrics import roc_curve, precision_recall_curve, auc, confusion_matrix, ConfusionMatrixDisplay
 import itertools
 import cv2
@@ -69,79 +69,85 @@ def plot_mse_heatmap(X_test, predictions, output_dir="mse_plots"):
     return mse
 
 
-def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analysis_plots", threshold=0.01, use_log_threshold=False):
+def plot_mse_heatmap_overlay(X_test, predictions, image_shape, output_dir="analysis_plots",
+                             num_vars=3, threshold=0.01, use_log_threshold=False):
     """
     Computes per-pixel MSE and overlays an anomaly heatmap on the original images.
-
-    Parameters:
-        model: Trained Autoencoder model.
-        X_test: Test images (flattened).
-        y_test: Corresponding one-hot labels.
-        image_shape: Tuple representing the (height, width) of the original image.
-        output_dir: Directory to save plots.
-        threshold: MSE value above which pixels are considered anomalous.
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    for i in range(min(5, len(X_test))):  # Limit to first 5 examples
+    height, width = image_shape
 
+    for i in range(min(5, len(X_test))):  # Limit to first 5 examples
         original_flat = X_test[i]
         reconstructed_flat = predictions[i]
-        height, width = image_shape
-        
-        original_img = original_flat.reshape((height, width, 3))
-        avg_original_img = np.mean(original_img, axis=-1)  # Shape becomes (height, width)
-        reconstructed_img = reconstructed_flat.reshape((height, width, 3))
-        avg_reconstructed_img = np.mean(reconstructed_img, axis=-1)  # Shape becomes (height, width)
 
-        # Compute per-pixel squared error
-        error_map = np.mean(np.square(original_img - reconstructed_img), axis=-1)
+        # Infer channel count if not 3/unsure
+        inferred_vars = original_flat.size // (height * width)
+        if inferred_vars > 0 and inferred_vars != num_vars:
+            num_vars = inferred_vars  # keep function resilient
 
+        original_img = original_flat.reshape((height, width, num_vars))
+        reconstructed_img = reconstructed_flat.reshape((height, width, num_vars))
 
-        # Apply log transformation if requested
+        # 2D grayscale for display
+        avg_original_img = np.mean(original_img, axis=-1)
+        avg_reconstructed_img = np.mean(reconstructed_img, axis=-1)
+
+        # Per-pixel MSE across channels
+        error_map = np.mean((original_img - reconstructed_img) ** 2, axis=-1).astype(np.float32)
+
+        # Optional log thresholding
         if use_log_threshold:
-            error_map = np.log10(error_map + 1e-8)  # shift to avoid log(0)
+            error_map = np.log10(error_map + 1e-8)
             threshold_label = f"log10({threshold})"
             threshold_value = np.log10(threshold)
         else:
             threshold_label = f"{threshold}"
             threshold_value = threshold
 
-        # Normalize the error map for heatmap visualization
-        norm_error_map = (error_map - np.min(error_map)) / (np.max(error_map) - np.min(error_map) + 1e-8)
+        # Normalize error map to [0,1] for colormap
+        emn, emx = float(error_map.min()), float(error_map.max())
+        norm_error_map = (error_map - emn) / (emx - emn + 1e-8)
 
-        # Create anomaly mask
+        # Anomaly mask and stats
         anomaly_mask = (error_map >= threshold_value).astype(np.uint8)
         num_pixels = anomaly_mask.size
-        num_anomalous = np.sum(anomaly_mask)
-        percent = (num_anomalous / num_pixels) * 100
-
+        num_anomalous = int(anomaly_mask.sum())
+        percent = (num_anomalous / num_pixels) * 100.0
         logger.info(f"[Image {i}] Anomalous Pixels: {num_anomalous:,}  Percentage: {percent:.2f}%")
 
-        # Prepare image for overlay
-        original_bgr = cv2.cvtColor((avg_original_img * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        heatmap_raw = (norm_error_map * 255).astype(np.uint8)
-        heatmap_color = cv2.applyColorMap(heatmap_raw, cv2.COLORMAP_JET)
+        # Prepare overlay (base is grayscale -> BGR for OpenCV)
+        original_bgr = cv2.cvtColor(
+            np.clip(avg_original_img * 255.0, 0, 255).astype(np.uint8),
+            cv2.COLOR_GRAY2BGR
+        )
+        heatmap_raw = np.clip(norm_error_map * 255.0, 0, 255).astype(np.uint8)
+        heatmap_color_bgr = cv2.applyColorMap(heatmap_raw, cv2.COLORMAP_JET)
 
-        overlay = cv2.addWeighted(original_bgr, 0.6, heatmap_color, 0.4, 0)
-        overlay[anomaly_mask == 1] = [255, 0, 0]
+        overlay_bgr = cv2.addWeighted(original_bgr, 0.6, heatmap_color_bgr, 0.4, 0)
+        # Paint anomalies in RED (BGR -> red is [0,0,255])
+        overlay_bgr[anomaly_mask == 1] = [0, 0, 255]
+
+        # Convert BGR -> RGB for matplotlib
+        overlay_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
 
         # Plot
         fig, axes = plt.subplots(1, 2, figsize=(15, 4))
-        axes[0].imshow(original_img, cmap="gray")
-        axes[0].set_title("Original")
-        axes[1].imshow(overlay)
+        axes[0].imshow(avg_original_img, cmap="gray")
+        axes[0].set_title("Original (avg across channels)")
+        axes[1].imshow(overlay_rgb)
         axes[1].set_title(f"Heatmap (Threshold: {threshold_label})")
-
         for ax in axes:
             ax.axis("off")
-
         plt.tight_layout()
+
         output_path = os.path.join(output_dir, f"anomaly_overlay_{i}.png")
-        plt.savefig(output_path)
-        plt.close()
+        plt.savefig(output_path, dpi=150)
+        plt.close(fig)
 
         logger.info(f"[✓] Heatmap Saved: {output_path}")
+
 
 
 def analyze_mse_distribution(X_test, predictions, image_shape, output_dir="analysis_plots"):
@@ -497,7 +503,8 @@ def plot_channelwise_pixel_loss(x_true, x_pred, config, output_dir="analysis_plo
     os.makedirs(output_dir, exist_ok=True)
 
     # Extract channels from config or default to RGB
-    channels = getattr(getattr(config, 'preprocessor', {}), 'channels', ['R', 'G', 'B'])
+    channels = deep_getattr(config, "preprocessing.preprocessor.channels", ["R", "G", "B"])
+
     channel_map = {'H': "Hue", 'S': "Saturation", 'V': "Value",
                    'R': "Red", 'G': "Green", 'B': "Blue"}
     color_defaults = {'R': 'red', 'G': 'green', 'B': 'blue',

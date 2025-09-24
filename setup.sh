@@ -71,7 +71,7 @@ if $IS_MAC; then
     pip install -e '.[mac]'
 elif $IS_WINDOWS || $IS_LINUX; then
     echo "🖥️ Installing PIXAL with GPU dependencies"
-    pip install -e '.[gpu]'
+    pip install -e '.[tf_bundled]'
 fi
 
 echo "✅ PIXAL setup complete!"
