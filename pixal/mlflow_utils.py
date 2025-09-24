@@ -15,72 +15,113 @@ call `with mlflow_utils.run_experiment(params):` to record runs.
 """
 from __future__ import annotations
 import os
+from pathlib import Path
 from contextlib import contextmanager
-from typing import Dict, Optional
-
-MLFLOW_URI_ENV = "MLFLOW_TRACKING_URI"
+from typing import Optional, Dict
 
 try:
     import mlflow
-    import mlflow.keras  # type: ignore
 except Exception:
-    mlflow = None  # type: ignore
+    mlflow = None  # best-effort behavior below
 
-# allow overriding tracking uri via env var
+MLFLOW_URI_ENV = "MLFLOW_TRACKING_URI"
+
+def _normalize_uri_path(p: Path) -> str:
+    # Return absolute path string
+    return str(p.resolve())
+
+def _as_tracking_uri(value: str) -> str:
+    """
+    Convert a value into an MLflow tracking URI.
+    - If it looks like a URI scheme (contains '://'), pass through unchanged.
+    - Otherwise treat as a local path and prefix 'file://'.
+    """
+    if "://" in value:
+        return value
+    # local filesystem path
+    abs_path = _normalize_uri_path(Path(value))
+    return f"file://{abs_path}"
+
+def _ensure_local_dir_for_uri(uri: str) -> None:
+    """
+    If the tracking URI is a local 'file://' URI, ensure the folder exists.
+    """
+    if not uri.startswith("file://"):
+        return
+    # Strip scheme; on Linux this is straightforward
+    local_path = uri[len("file://"):]
+    Path(local_path).mkdir(parents=True, exist_ok=True)
+
+# ---- Initialize MLflow tracking URI early ----
 if mlflow is not None:
-    # Prefer an explicit env var if set; otherwise default to a repo-local mlruns
-    _tracking_uri = os.environ.get(MLFLOW_URI_ENV)
-    if not _tracking_uri:
-        # Default to a predictable file-backed store inside the repository
-        # (use an absolute path so different CWDs still write to the same place)
-        _tracking_uri = "file:/home/jacob/work/pixal/mlruns"
-        # Export it for subprocesses that may inspect the env
-        os.environ[MLFLOW_URI_ENV] = _tracking_uri
+    # Prefer explicit env var if set; otherwise default to repo-local pixal/mlruns
+    env_uri = os.environ.get(MLFLOW_URI_ENV)
+    if env_uri:
+        effective_uri = _as_tracking_uri(env_uri)
+    else:
+        # Use repo-local `pixal/mlruns` dir (absolute path), e.g. "<repo_root>/pixal/mlruns"
+        repo_root = Path(__file__).resolve().parents[2]  # adjust depth if needed
+        default_dir = repo_root / "pixal" / "mlruns"
+        effective_uri = _as_tracking_uri(_normalize_uri_path(default_dir))
+        # Also populate the env var so subprocesses inherit it
+        os.environ[MLFLOW_URI_ENV] = effective_uri
 
+    # Ensure local directory exists for file:// stores
+    _ensure_local_dir_for_uri(effective_uri)
+
+    # Now set it on mlflow
+    mlflow.set_tracking_uri(effective_uri)
+
+    # Optional but helpful for debugging: print once
     try:
-        mlflow.set_tracking_uri(_tracking_uri)
-        # If the backend is file-based, ensure the directory exists
-        if _tracking_uri.startswith("file:"):
-            # strip file: prefix and create the directory if needed
-            path = _tracking_uri[len("file:"):]
-            try:
-                os.makedirs(path, exist_ok=True)
-                # create an artifacts subdir for convenience
-                os.makedirs(os.path.join(path, "artifacts"), exist_ok=True)
-            except Exception:
-                pass
+        print(f"[mlflow] tracking URI = {effective_uri}")
     except Exception:
         pass
 
+DEFAULT_EXPERIMENT_NAME = "pixal"  # choose something project-specific
 
 @contextmanager
-def run_experiment(params: Optional[Dict] = None, run_name: Optional[str] = None):
-    """Context manager that starts and ends an MLflow run and logs params.
-
-    This is best-effort: if MLflow isn't installed or fails, it yields a dummy
-    context but does not raise so training can continue.
+def run_experiment(
+    params: Optional[Dict] = None,
+    run_name: Optional[str] = None,
+    experiment_name: Optional[str] = None,
+):
+    """
+    Context manager that starts and ends an MLflow run and logs params.
+    Best-effort: if MLflow isn't installed or fails, yields None and continues.
     """
     if mlflow is None:
         yield None
         return
-    with mlflow.start_run(run_name=run_name) as run:
-        if params:
-            try:
-                mlflow.log_params({k: (v if isinstance(v, (str, int, float, bool)) else str(v)) for k, v in params.items()})
-            except Exception:
-                # Best-effort: avoid failing training if mlflow can't serialize
-                pass
-        yield run
 
+    try:
+        # Ensure an experiment exists & is selected (creates if missing)
+        mlflow.set_experiment(experiment_name or DEFAULT_EXPERIMENT_NAME)
+
+        with mlflow.start_run(run_name=run_name) as run:
+            if params:
+                try:
+                    mlflow.log_params({
+                        k: (v if isinstance(v, (str, int, float, bool)) else str(v))
+                        for k, v in params.items()
+                    })
+                except Exception:
+                    pass
+            yield run
+    except Exception:
+        # fall back gracefully
+        yield None
 
 def log_params(params: Dict):
     if mlflow is None:
         return
     try:
-        mlflow.log_params({k: (v if isinstance(v, (str, int, float, bool)) else str(v)) for k, v in params.items()})
+        mlflow.log_params({
+            k: (v if isinstance(v, (str, int, float, bool)) else str(v))
+            for k, v in params.items()
+        })
     except Exception:
         pass
-
 
 def log_metrics(metrics: Dict, step: Optional[int] = None):
     if mlflow is None:
@@ -90,7 +131,6 @@ def log_metrics(metrics: Dict, step: Optional[int] = None):
             mlflow.log_metric(k, float(v), step=step)
     except Exception:
         pass
-
 
 def log_artifact(local_path: str, artifact_path: Optional[str] = None):
     if mlflow is None:
@@ -103,18 +143,17 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None):
     except Exception:
         pass
 
-
 def log_keras_model(model_or_path, artifact_path: str = "model"):
     """Log a Keras model to MLflow.
 
     Accepts either a `tf.keras.Model` instance or a filesystem path to a saved model.
-    This is best-effort: if MLflow or mlflow.keras are not available the call is a no-op.
+    Best-effort: if MLflow or mlflow.keras are not available the call is a no-op.
     """
     if mlflow is None:
         return
     try:
         # If a model instance is provided, prefer mlflow.keras.log_model
-        if hasattr(model_or_path, 'save'):
+        if hasattr(model_or_path, "save"):
             try:
                 mlflow.keras.log_model(model_or_path, artifact_path=artifact_path)
                 return
@@ -124,14 +163,13 @@ def log_keras_model(model_or_path, artifact_path: str = "model"):
         # Otherwise treat as a path and log the artifact (directory or file)
         path = str(model_or_path)
         if os.path.isdir(path):
-            # log directory contents
             mlflow.log_artifacts(path, artifact_path=artifact_path)
         else:
             mlflow.log_artifact(path, artifact_path=artifact_path)
     except Exception:
         pass
 
-
+# --- Keras callback unchanged below ---
 try:
     import tensorflow as _tf  # noqa: N812
     TF_AVAILABLE = True
@@ -139,19 +177,14 @@ except Exception:
     _tf = None  # type: ignore
     TF_AVAILABLE = False
 
-
 if TF_AVAILABLE:
     class KerasModelLoggerCallback(_tf.keras.callbacks.Callback):
-        """Keras callback that logs epoch metrics to MLflow.
-
-        Usage: pass instance in `model.fit(..., callbacks=[KerasModelLoggerCallback()])`
-        """
+        """Keras callback that logs epoch metrics to MLflow."""
         def on_epoch_end(self, epoch, logs=None):
             if not logs or mlflow is None:
                 return
             try:
                 for k, v in logs.items():
-                    # logs may include arrays; coerce
                     mlflow.log_metric(k, float(v), step=epoch)
             except Exception:
                 pass

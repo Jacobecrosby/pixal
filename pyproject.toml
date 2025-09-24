@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixal"
-version = "0.5.1
+version = "0.5.1"
 description = "PIXel-based Anomaly Detection Tool for ATLAS Components"
 authors = [{ name = "Dr. Jacob E. Crosby" }]
 
@@ -30,13 +30,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# ONNX Runtime GPU (system CUDA 12.x)
-gpu = ["onnxruntime-gpu"]
-
 # macOS CPU path
 mac = ["onnxruntime"]
 
-tf_bundled = ["tensorflow[and-cuda]==2.17.0"]
+# For GPU setups
+gpu = ["tensorflow[and-cuda]==2.17.0","onnxruntime-gpu"]
 
 [project.scripts]
 pixal = "pixal.cli:main"

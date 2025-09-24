@@ -13,6 +13,8 @@
 #
 ##
 ###
+experimentName: "Test_Experiment"  # Name of the MLflow experiment to log results to. If it doesn't exist, it will be created.
+
 ########## ----> Preprocessing <---- ###########
 preprocessing:
   # Thread count for CPU usage
@@ -38,8 +40,8 @@ preprocessing:
     file_name: "out.npz"
     pool_size: 2                                   # Pooling size for image pixels (e.g. 2x2 pooling) 
     # Reccommended Combinations: ["LAB_a", "LAB_b", "GradMag"] or ["LAB_a", "LAB_b", "LCh_sinH", "LCh_cosH", "GradMag", "LocalStd"] or ["ALL"]
-    channels: ["LAB_a", "LAB_b", "LCh_C", "Cr", "Cb", "LocalStd"]                # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]). All possible variables ["R","G","B","H","S","V","Y","Cr","Cb","LAB_L","LAB_a","LAB_b","LCh_C","LCh_sinH","LCh_cosH","r_chroma","g_chroma","Opp_O1","Opp_O2","Opp_O3","GradMag","Laplacian","LocalStd"]
-    weights: [3.0,     3.0,     0.2,    1.0,  1.0,  0.1] # Weights for each channel (must be same length as channels). These weights are used for calculating the loss during training. Higher weight means more important.
+    channels: ["LAB_a", "LAB_b"]                # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]). All possible variables ["R","G","B","H","S","V","Y","Cr","Cb","LAB_L","LAB_a","LAB_b","LCh_C","LCh_sinH","LCh_cosH","r_chroma","g_chroma","Opp_O1","Opp_O2","Opp_O3","GradMag","Laplacian","LocalStd"]
+    weights: [3.0,     3.0] # Weights for each channel (must be same length as channels). These weights are used for calculating the loss during training. Higher weight means more important.
     zero_pruning: True                       # Prunes zero pixels from the image. If True, only non-zero pixels are saved to the .npz file. This is useful for sparse data.
     zero_pruning_padding: 5                        # Prune pixels that are within this distance from the edge of the image. This is useful for images with a lot of padding.
     bg_threshold: 15                                 # Threshold for background removal. Pixels with a value below this threshold are considered background and removed.

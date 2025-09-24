@@ -1,19 +1,4 @@
-import os, sys, ctypes
-# >>> put this at the very top, before importing tensorflow or anything GPU-related
-
-#Use TF's bundled CUDA (recommended: simplest & avoids mixing) ---
-os.environ["LD_LIBRARY_PATH"] = "/usr/lib/wsl/lib"           # only the WSL driver visible
-# If you use Numba anywhere, also point it to the correct driver:
-os.environ["NUMBA_CUDA_DRIVER"] = "/usr/lib/wsl/lib/libcuda.so.1"
-
-# Common settings
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-
-# Preload the correct GPU driver (prevents grabbing a stub)
-ctypes.CDLL("/usr/lib/wsl/lib/libcuda.so.1")
-
-
+import os, sys
 import logging
 import datetime
 import argparse
@@ -31,17 +16,6 @@ for d in gpus:
         tf.config.experimental.set_memory_growth(d, True)
     except Exception:
         pass
-# put this after TF init and memory_growth
-try:
-    import os
-    os.environ.setdefault("NUMBA_CUDA_DRIVER", "/usr/lib/wsl/lib/libcuda.so.1")
-    from numba import cuda
-    # Do NOT call cuda.select_device(0) here.
-    # Attach to the primary context TF already created:
-    _ = cuda.current_context()
-except Exception as e:
-    import logging
-    logging.warning(f"Numba attach skipped: {e}")
 
 print("LD_LIBRARY_PATH =", os.environ.get("LD_LIBRARY_PATH", "<unset>"))
 print("CUDA_VISIBLE_DEVICES =", os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"))
@@ -53,6 +27,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.python.client import device_lib
 from pixal.modules.config_loader import load_config
 from pixal.train_model.autoencoder import Autoencoder
+import pixal.mlflow_utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True, help="Path to a .npz data file")
@@ -168,7 +143,7 @@ except Exception:
     log_artifact = None  # type: ignore
 
 if run_experiment is not None:
-    with run_experiment(params, run_name=params.get('modelName')):
+    with run_experiment(params, run_name=params.get('modelName'), experiment_name=params.get("experimentName", None)):
         autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
 else:
     autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
