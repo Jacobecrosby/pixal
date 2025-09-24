@@ -467,17 +467,9 @@ model.load_weights(str(weights_path))
 
 MLflow quick-start (optional)
 
-If you want to track experiments with MLflow, install MLflow into your environment:
-
-```bash
-pip install mlflow
-```
+MLflow is now installed with `setup.sh`
 
 By default MLflow will create an `mlruns/` directory in the current working directory. To use a remote tracking server, set:
-
-```bash
-export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
-```
 
 PIXAL includes a small, best-effort integration helper at `pixal/mlflow_utils.py`. When `mlflow` is present, training runs (via the `pixal train` entrypoints) will:
 
@@ -485,16 +477,14 @@ PIXAL includes a small, best-effort integration helper at `pixal/mlflow_utils.py
 - Log per-epoch metrics (loss/val_loss) to MLflow
 - After training, log the saved model/weights and the metadata YAML as artifacts
 
-Recommended improvement (optional)
-
-Right now the project saves weights via `save_weights(...)`. For smoother MLflow model management we recommend saving the full Keras model (SavedModel dir or HDF5) using `model.save(...)` — this enables `mlflow.keras.log_model(...)` and makes it easier to load a model directly from MLflow without rebuilding the architecture by hand.
-
-If you want, I can update `pixal/train_model/autoencoder.py` to (a) call `model.save(...)` instead of `save_weights(...)`, and (b) use `mlflow.keras.log_model(...)` when MLflow is available. This will make models self-contained artifacts in MLflow and simplify validation and deployment.
-
-If the image has already been preprocessed and you want to just run the detection script to produce the defect plots, you can run:
+To start a local server, run:
 ```
-pixal detect -i /path/to/preprocessed/image/
+mlflow ui
 ```
+This automatically runs a MLflow server on port `5000`. 
+
+Go to `"http://your-mlflow-server:5000"` or however you access port `5000`. 
+
 
 ## Available Variables for ML Input
 
