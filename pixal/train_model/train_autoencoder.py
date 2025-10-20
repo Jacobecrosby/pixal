@@ -29,7 +29,7 @@ from tensorflow.python.client import device_lib
 from pixal.modules.config_loader import load_config
 from pixal.modules.model_training import compute_channel_means, build_flat_bias_initializer
 from pixal.train_model.autoencoder import Autoencoder
-import pixal.modules.mlflow_utils
+import pixal.mlflow_utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True, help="Path to a .npz data file")
@@ -164,16 +164,17 @@ autoencoder.build_model(input_dim=X.shape[1])
 
 # Optional MLflow instrumentation (best-effort)
 try:
-    from pixal.modules.mlflow_utils import run_experiment, log_artifact  # type: ignore
+    from pixal.mlflow_utils import run_experiment, log_artifact  # type: ignore
 except Exception:
     run_experiment = None  # type: ignore
     log_artifact = None  # type: ignore
 
 if run_experiment is not None:
     with run_experiment(params, run_name=params.get('modelName'), experiment_name=params.get("experimentName", None)):
+        logger.info("Starting training with MLflow logging")
         autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
 else:
-    print("HEREEEEE3")
+    logger.info("Starting training without MLflow logging")
     autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
 
 model_file = model_dir / f"{config.model_training.model_name}.{config.model_training.model_file_extension}"
@@ -192,7 +193,7 @@ with open(yaml_path, 'w') as f:
 
 # Log artifacts to MLflow (best-effort)
 try:
-    from pixal.modules.mlflow_utils import log_keras_model  # type: ignore
+    from pixal.mlflow_utils import log_keras_model  # type: ignore
 except Exception:
     log_keras_model = None  # type: ignore
 
