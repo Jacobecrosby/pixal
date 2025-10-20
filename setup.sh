@@ -78,7 +78,7 @@ echo "✅ PIXAL setup complete!"
 
 # setup_mlflow.sh
 HOST="$(hostname -s 2>/dev/null || hostname)"
-if [[ "${HOST^^}" == "ML2" ]]; then
+if [[ "${HOST^^}" == "ml2" ]]; then
   export MLFLOW_TRACKING_URI="https://mlflow.app.hep.okstate.edu"
 fi
 
