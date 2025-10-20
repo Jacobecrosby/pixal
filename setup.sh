@@ -75,6 +75,13 @@ elif $IS_WINDOWS || $IS_LINUX; then
 fi
 
 echo "✅ PIXAL setup complete!"
+
+# setup_mlflow.sh
+HOST="$(hostname -s 2>/dev/null || hostname)"
+if [[ "${HOST^^}" == "ML2" ]]; then
+  export MLFLOW_TRACKING_URI="https://mlflow.app.hep.okstate.edu"
+fi
+
 echo "👉 To activate your environment later, run:"
 if $IS_WINDOWS; then
     echo "   source $VENV_DIR/Scripts/activate"

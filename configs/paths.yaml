@@ -1,15 +1,16 @@
 # *************** BASE PATH. DO NOT CHANGE ***************
 out_path: &out_path "./out/"
 validate_out_path: &validate_out_path "./validate"
+base_log_path: &base_log_path "./logs/"
 
 
 # ************** Path for component outputs **************
 component_model_path: &component_model_path 
-  component: "Data_set_R0_Triplet_Data_F1_2ps_4var"
+  component: "Data_set_R0_Triplet_Data_F1_2ps_4vars_test"
   base: *out_path
 
 component_validate_path: &component_validate_path
-  component: "Data_set_R0_Triplet_Data_F1_d1_2ps_4var"
+  component: "Data_set_R0_Triplet_Data_F1_d1_2ps_4vars_test"
   base: *validate_out_path
 
 # ********** DO NOT CHANGE THE FOLLOWING PATHS *********** 

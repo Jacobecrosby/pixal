@@ -33,15 +33,15 @@ preprocessing:
 
   save_metrics: True                                # Save alignment metrics
   save_overlays: True                              # Save overlays of aligned images
-  draw_matches: True                             # Draw matches between images and save them to disk
+  draw_matches: False                            # Draw matches between images and save them to disk
 
   # Settings for preprocessing images to .npz format for ML input
   preprocessor:
     file_name: "out.npz"
-    pool_size: 2                                   # Pooling size for image pixels (e.g. 2x2 pooling) 
+    pool_size: 4                                   # Pooling size for image pixels (e.g. 2x2 pooling) 
     # Reccommended Combinations: ["LAB_a", "LAB_b", "GradMag"] or ["LAB_a", "LAB_b", "LCh_sinH", "LCh_cosH", "GradMag", "LocalStd"] or ["ALL"]
-    channels: ["LAB_a", "LAB_b", "Laplacian","LocalStd"]                # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]). All possible variables ["R","G","B","H","S","V","Y","Cr","Cb","LAB_L","LAB_a","LAB_b","LCh_C","LCh_sinH","LCh_cosH","r_chroma","g_chroma","Opp_O1","Opp_O2","Opp_O3","GradMag","Laplacian","LocalStd"]
-    weights: [2.0, 1.0, 1.0, 0.1]                                       # Weights for each channel (must be same length as channels). These weights are used for calculating the loss during training. Higher weight means more important.
+    channels: ["R", "G", "B", "LAB_a","LAB_b","Laplacian","r_chroma"]                # Pixel data channels to save for ML input (Can be ruduced, e.g. ["R", "G", "B"]). All possible variables ["R","G","B","H","S","V","Y","Cr","Cb","LAB_L","LAB_a","LAB_b","LCh_C","LCh_sinH","LCh_cosH","r_chroma","g_chroma","Opp_O1","Opp_O2","Opp_O3","GradMag","Laplacian","LocalStd"]
+    weights: [1.2, 1.5, 5.0, 1.0, 1.0, 1.3, 1.0]                                       # Weights for each channel (must be same length as channels). These weights are used for calculating the loss during training. Higher weight means more important.
     zero_pruning: True                       # Prunes zero pixels from the image. If True, only non-zero pixels are saved to the .npz file. This is useful for sparse data.
     zero_pruning_padding: 5                        # Prune pixels that are within this distance from the edge of the image. This is useful for images with a lot of padding.
     bg_threshold: 15                                 # Threshold for background removal. Pixels with a value below this threshold are considered background and removed.
@@ -67,7 +67,7 @@ model_training:
 
   #### ----> Architecture <---- ####
   one_hot_encoding: False # Use one-hot encoding to train a model using all types of images. If False, a different model will be trained for each type of image. Currently underperforms separate models.
-  autoencoder_architecture: [512,256,128,64] # Last index is latent layer. Gets mirrored in code
+  autoencoder_architecture: [1024,512,256,128] # Last index is latent layer. Gets mirrored in code
   label_latent_size: 16 # Size of the latent layer for the label. This gets added to the latent layer of the autoencoder
 
   ########## ----> Training <---- ##########
@@ -78,14 +78,18 @@ model_training:
   batchsize: 8
 
   learning_rate: 1e-4
+  optimizer: 'adam' # 'adam' or 'adamW' (AdamW is Adam with weight decay, which helps prevent overfitting)
+  weight_decay: 1e-5 # Only used if optimizer is AdamW
   regularization: 'l2' # 'l2' or 'l1' 
   l1_regularization: 0.0001 # Encourages zero weights. Helps feature selection. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
   l2_regularization: 1.0e-05 # Discourages zero weights. General stability. Smaller values: ex. 1e-4 Apply lighter regularization, allowing weights to grow larger without as much penalty.
-  loss_function: "mse" # "mse", 'mae', Huber, charbonnier
+  loss_function: "mse" # "mse", 'mae', Huber, charbonnier, bce
+  logits: True # Only used for BCE loss. If True, the output layer will not have an activation function (linear). If False, the output layer will have a sigmoid activation function.
   huber_delta: 0.25 # Delta value for Huber loss function
   masked_loss: True # Masked loss ignores zero pixels in the loss calculation. This is useful for sparse data.
   metric_accuracy: "SparseCategoricalAccuracy" #CategoricalAccuracy <--- May need this when implementing image sets
-  output_activation: "sigmoid" # sigmoid, softmax, tanh, relu, linear
+  output_activation: "none" # sigmoid, softmax, tanh, relu, linear, none
+  bias_initializer: "none" # zeros, ones, channel_means, none
 
   ### ----> STOP LOSS <---- ###
   patience: 30
@@ -109,4 +113,4 @@ plotting:
   plot_distributions: True
 
   use_log_loss: False  # Use log loss for plotting
-  loss_cut: 0.1  # Cut off for loss plotting
+  loss_cut: 0.05  # Cut off for loss plotting

@@ -21,13 +21,15 @@ print("LD_LIBRARY_PATH =", os.environ.get("LD_LIBRARY_PATH", "<unset>"))
 print("CUDA_VISIBLE_DEVICES =", os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"))
 
 import tensorflow.keras.backend as K
+from tensorflow.keras import initializers
 from numba import cuda
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from tensorflow.python.client import device_lib
 from pixal.modules.config_loader import load_config
+from pixal.modules.model_training import compute_channel_means, build_flat_bias_initializer
 from pixal.train_model.autoencoder import Autoencoder
-import pixal.mlflow_utils
+import pixal.modules.mlflow_utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True, help="Path to a .npz data file")
@@ -102,10 +104,32 @@ original_shape = dataset["shape"]
 X = X.reshape(X.shape[0], -1)
 x_train, x_val = train_test_split(X, test_size=0.2, random_state=42)
 
+if config.model_training.bias_initializer == 'none':
+    bias_init = None
+else:
+    channels = config.preprocessing.preprocessor.channels
+    C = len(channels)
+    # Only needed if using 'channel_means'
+    channel_means = compute_channel_means(x_train, C) if config.model_training.bias_initializer == 'channel_means' else None
+
+    bias_init = build_flat_bias_initializer(
+        config.model_training.bias_initializer,
+        input_dim=X.shape[1],
+        channel_means=channel_means,
+        C=C,
+        seed=getattr(config.model_training, "seed", None),
+    )
+
+if config.model_training.output_activation == 'none':
+    output_activation = None
+else:
+    output_activation = config.model_training.output_activation
+
 # Prepare params
 params = {
     'architecture': config.model_training.autoencoder_architecture,
     'one_hot_encoding': config.model_training.one_hot_encoding,
+    'optimizer': config.model_training.optimizer,
     'learning_rate': float(config.model_training.learning_rate),
     'input_dim': X.shape[1],
     'encoder_names': [f'encoder_layer{i+1}' for i in range(len(config.model_training.autoencoder_architecture) - 1)],
@@ -124,11 +148,14 @@ params = {
     'fig_path': str(model_dir),
     'model_path': str(model_dir),
     'label_latent_size': config.model_training.label_latent_size,
-    'output_activation': config.model_training.output_activation,
+    'output_activation': output_activation,
     'channels': config.preprocessing.preprocessor.channels,
     'weights': getattr(config.preprocessing.preprocessor, 'weights', [1.0]*len(config.preprocessing.preprocessor.channels)),
     'masked_loss': config.model_training.get('masked_loss', False),
     'huber_delta': config.model_training.get('huber_delta', 1.0),
+    'bias_init_vector': bias_init,
+    'weight_decay': config.model_training.get('weight_decay', 0.0),
+    'logits': config.model_training.get('logits', False),
 }
 
 # Train
@@ -137,7 +164,7 @@ autoencoder.build_model(input_dim=X.shape[1])
 
 # Optional MLflow instrumentation (best-effort)
 try:
-    from pixal.mlflow_utils import run_experiment, log_artifact  # type: ignore
+    from pixal.modules.mlflow_utils import run_experiment, log_artifact  # type: ignore
 except Exception:
     run_experiment = None  # type: ignore
     log_artifact = None  # type: ignore
@@ -164,7 +191,7 @@ with open(yaml_path, 'w') as f:
 
 # Log artifacts to MLflow (best-effort)
 try:
-    from pixal.mlflow_utils import log_keras_model  # type: ignore
+    from pixal.modules.mlflow_utils import log_keras_model  # type: ignore
 except Exception:
     log_keras_model = None  # type: ignore
 

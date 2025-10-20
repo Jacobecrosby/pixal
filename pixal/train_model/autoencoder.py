@@ -12,6 +12,8 @@ import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Flatten, Concatenate
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras import initializers
+
 
 import tensorflow as tf
 
@@ -112,8 +114,18 @@ class Autoencoder(tf.keras.Model):
         for i, units in enumerate(decoder_arch):
             self.decoder.add(Dense(units, activation=tf.nn.leaky_relu, activity_regularizer=regularizer,
                                 name=self.params['decoder_names'][i]))
-
-        self.output_layer = Dense(input_dim, activation=self.params['output_activation'], name="output")
+        
+        if self.params.get('bias_init_vector') is not None:
+            bias_init = initializers.Constant(self.params['bias_init_vector'])
+        else:
+            bias_init = None
+        
+        self.output_layer = Dense(input_dim, 
+                                activation=self.params['output_activation'], 
+                                name="output",
+                                bias_initializer=bias_init,
+                                kernel_regularizer=None,
+                                activity_regularizer=None)
 
 
     def get_config(self):
@@ -147,16 +159,24 @@ class Autoencoder(tf.keras.Model):
 
         channels = params.get('channels', [])
 
+        if params['optimizer'] == 'adam':
+           optimizer = tf.keras.optimizers.Adam(learning_rate=float(params['learning_rate']))
+        elif params['optimizer'] == 'adamW':
+            optimizer = tf.keras.optimizers.AdamW(learning_rate=float(params['learning_rate']), weight_decay=float(params['weight_decay']))
+        else:
+            optimizer = tf.keras.optimizers.Adam(learning_rate=float(params['learning_rate']))
         # Build metrics and loss function
+
         metrics = ["mse"] + [make_per_channel_metric(i, channels, reducer="mse") for i in range(len(channels))]
         metrics.append(make_total_weighted_metric(channels, params['weights'], base="huber", delta=1.0))
         metrics += [make_weighted_contrib_metric(i, channels, params['weights'], base="huber", delta=0.5)
             for i in range(len(channels))]
-        loss_fn = make_weighted_loss(channels, weights=params['weights'], base=params['loss_function'], delta=params.get('huber_delta', 1.0))
+        
+        loss_fn = make_weighted_loss(channels, weights=params['weights'], base=params['loss_function'], delta=params.get('huber_delta', 1.0),from_logits=params.get('logits',False) , use_mask=params.get('masked_loss', False))
 
         # Compile the model
         self.logger.info("Compiling the model...")
-        self.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=params['learning_rate']),
+        self.compile(optimizer=optimizer,
                     loss=loss_fn,
                     metrics=metrics,
                     run_eagerly=True) 
