@@ -61,7 +61,7 @@ if mlflow is not None:
     else:
         # Use repo-local `pixal/mlruns` dir (absolute path), e.g. "<repo_root>/pixal/mlruns"
         repo_root = Path(__file__).resolve().parents[2]  # adjust depth if needed
-        default_dir = repo_root / "pixal" / "mlruns"
+        default_dir = repo_root / "mlruns"
         effective_uri = _as_tracking_uri(_normalize_uri_path(default_dir))
         # Also populate the env var so subprocesses inherit it
         os.environ[MLFLOW_URI_ENV] = effective_uri

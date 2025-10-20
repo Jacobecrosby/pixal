@@ -173,6 +173,7 @@ if run_experiment is not None:
     with run_experiment(params, run_name=params.get('modelName'), experiment_name=params.get("experimentName", None)):
         autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
 else:
+    print("HEREEEEE3")
     autoencoder.compile_and_train(x_train, x_train, x_val, x_val, params)
 
 model_file = model_dir / f"{config.model_training.model_name}.{config.model_training.model_file_extension}"
