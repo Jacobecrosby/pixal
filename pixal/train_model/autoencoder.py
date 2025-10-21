@@ -227,6 +227,8 @@ class Autoencoder(tf.keras.Model):
             except Exception:
                 pass
 
+            self.logger.info("Callbacks about to use: %s", [type(cb).__name__ for cb in callbacks])
+            
             # Args: training data, target data, batch_size, epochs, verbose, callbacks, validation_data=[x_val, x_target], val_batch_size
             # Train the model using (x_train, y_train) as input
             history = self.fit(

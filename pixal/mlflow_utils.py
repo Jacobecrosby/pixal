@@ -21,6 +21,7 @@ from typing import Optional, Dict
 
 try:
     import mlflow
+    mlflow.keras.autolog()
 except Exception:
     mlflow = None  # best-effort behavior below
 
@@ -171,7 +172,7 @@ def log_keras_model(model_or_path, artifact_path: str = "model"):
 
 # --- Keras callback unchanged below ---
 try:
-    import tensorflow as _tf  # noqa: N812
+    import tensorflow as _tf 
     TF_AVAILABLE = True
 except Exception:
     _tf = None  # type: ignore
